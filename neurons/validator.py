@@ -41,6 +41,8 @@ from compute import (
     pow_min_difficulty,
     pow_max_difficulty,
     pow_timeout,
+    pow_default_mode,
+    pow_mode_list,
     SUSPECTED_EXPLOITERS_HOTKEYS,
     SUSPECTED_EXPLOITERS_COLDKEYS,
     __version_as_int__,
@@ -59,6 +61,7 @@ from neurons.Validator.database.allocate import update_miner_details, select_has
 from neurons.Validator.database.challenge import select_challenge_stats, update_challenge_details
 from neurons.Validator.database.miner import select_miners, purge_miner_entries, update_miners
 
+import secrets
 
 class Validator:
     blocks_done: set = set()
@@ -466,7 +469,7 @@ class Validator:
         )
         elapsed_time = time.time() - start_time
         response_password = response.get("password", "")
-        hashed_response = gen_hash(response_password, _salt)[0] if response_password else ""
+        hashed_response = gen_hash(mode, response_password, _salt)[0] if response_password else ""
         success = True if _hash == hashed_response else False
         result_data = {
             "ss58_address": axon.hotkey,
@@ -620,7 +623,8 @@ class Validator:
                     # Perform pow queries
                     if self.current_block % block_next_challenge == 0 or block_next_challenge < self.current_block:
                         # Next block the validators will challenge again.
-                        block_next_challenge = self.current_block + random.randint(50, 80)  # 50,80 -> between ~ 10 and 16 minutes
+                        # block_next_challenge = self.current_block + random.randint(50, 80)  # 50,80 -> between ~ 10 and 16 minutes
+                        block_next_challenge = self.current_block + random.randint(4, 5)
 
                         # Filter axons with stake and ip address.
                         self._queryable_uids = self.get_queryable()
@@ -634,7 +638,7 @@ class Validator:
                                 try:
                                     axon = self._queryable_uids[_uid]
                                     difficulty = self.calc_difficulty(_uid)
-                                    password, _hash, _salt, mode, chars, mask = run_validator_pow(length=difficulty)
+                                    password, _hash, _salt, mode, chars, mask = run_validator_pow(mode=secrets.choice(pow_mode_list), length=difficulty)
                                     self.pow_requests[_uid] = (password, _hash, _salt, mode, chars, mask, difficulty)
                                     self.threads.append(
                                         threading.Thread(
@@ -655,6 +659,10 @@ class Validator:
 
                         self.pow_benchmark = self.new_pow_benchmark
                         self.pow_benchmark_success = {k: v for k, v in self.pow_benchmark.items() if v["success"] is True and v["elapsed_time"] < pow_timeout}
+
+                        benchmark = {k: v for k, v in self.pow_benchmark.items() }
+                        benchmark['mode'] = mode
+                        bt.logging.info("Benchmark Result:", benchmark)
 
                         # Logs benchmarks for the validators
                         if len(self.pow_benchmark_success) > 0:

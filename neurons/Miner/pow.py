@@ -89,10 +89,15 @@ def run_hashcat(
         bt.logging.info(f"{run_id}: ♻️  Challenge processing")
 
     unknown_error_message = f"{run_id}: ❌ run_hashcat execution failed"
+    if mode == "8900":
+        _hash_str = ":".join(_hash.split(":")[0:4]) + ":" + salt + ":" + _hash.split(":")[4]
+    else:
+        _hash_str = f"{_hash}:{salt}"
+
     try:
         command = [
             hashcat_path,
-            f"{_hash}:{salt}",
+            _hash_str, # need for inverse the salt and _hash for Scrypt
             "-a",
             "3",
             "-D",
@@ -102,6 +107,7 @@ def run_hashcat(
             "-1",
             str(chars),
             mask,
+            "--potfile-disable",
             "-w",
             hashcat_workload_profile,
             hashcat_extended_options,
@@ -124,7 +130,17 @@ def run_hashcat(
         # If hashcat returns a valid result
         if process.returncode == 0:
             if process.stdout:
-                result = hashcat_verify(_hash, process.stdout)
+                if mode == '8900':
+                    _hash_str = ":".join(_hash.split(":")[0:4]) + ":" + salt + _hash.split(":")[4]
+                    result = hashcat_verify(_hash_str, process.stdout)
+                else:
+                    result = hashcat_verify(_hash, process.stdout)
+
+                # Sometimes hashcat output the $HEX[] format
+                if "$HEX" in result:
+                    result = decode_hex(result)
+                    bt.logging.info(f"{run_id}: ❌ Convert $HEX format to {result}")
+
                 bt.logging.success(
                     f"{run_id}: ✅ Challenge {result} found in {execution_time:0.2f} seconds !"
                 )
@@ -203,3 +219,27 @@ def run_miner_pow(
         hashcat_extended_options=hashcat_extended_options,
     )
     return result
+
+def decode_hex(password):
+    decoded = []
+    pwd = password
+    if "$HEX" in password:
+
+        multihex = list(filter(None, password.split("$")))
+
+        for x in multihex:
+            if "HEX[" in x:
+                endhex = x.find("]")
+                try:
+                    decoded.append((bytes.fromhex(x[4:endhex]).decode("utf-8")))
+                except:
+                    decoded.append((bytes.fromhex(x[4:endhex]).decode("cp1252")))
+            else:
+                decoded.append(x)
+
+        if len(decoded) != 0:
+            pwd = ''.join(decoded)
+        return (pwd)
+
+    else:
+        return (pwd)
