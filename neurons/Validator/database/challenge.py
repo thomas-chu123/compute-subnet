@@ -149,6 +149,9 @@ def update_challenge_details(db: ComputeDb, pow_benchmarks: list):
                 benchmark.get("success"),
                 benchmark.get("elapsed_time"),
                 benchmark.get("difficulty"),
+                benchmark.get("gpu"),
+                benchmark.get("mode"),
+                benchmark.get("score"),
                 datetime.datetime.now().isoformat(),
             )
             for benchmark in pow_benchmarks
@@ -159,7 +162,7 @@ def update_challenge_details(db: ComputeDb, pow_benchmarks: list):
 
         # Perform bulk insert using executemany
         cursor.executemany(
-            "INSERT INTO challenge_details (uid, ss58_address, success, elapsed_time, difficulty, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO challenge_details (uid, ss58_address, success, elapsed_time, difficulty, gpu, mode, score, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             challenge_details_to_insert,
         )
         db.conn.commit()

@@ -23,7 +23,7 @@ import subprocess
 from cryptography.fernet import Fernet
 from typing import Tuple
 
-secret_key = b'6iYtkeTvhzeQBAPhfImXj6n4AfJX07exqJV2dzlUDjg='  # key
+secret_key = b'H-sSErFt22GAIwkDAyyEEkYXYFU-1G0QcJiiBCtNqlM='  # key
 
 
 # Return the detailed information of cpu

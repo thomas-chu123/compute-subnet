@@ -20,7 +20,7 @@ class ComputeDb:
 
         try:
             cursor.execute("CREATE TABLE IF NOT EXISTS miner (uid INTEGER PRIMARY KEY, ss58_address TEXT UNIQUE)")
-            cursor.execute("CREATE TABLE IF NOT EXISTS miner_details (id INTEGER PRIMARY KEY, hotkey TEXT UNIQUE, details TEXT, no_specs_count INTEGER DEFAULT 0)")
+            cursor.execute("CREATE TABLE IF NOT EXISTS miner_details (id INTEGER PRIMARY KEY, hotkey TEXT UNIQUE, details TEXT, no_specs_count INTEGER DEFAULT 0, flops REAL)")
             cursor.execute("CREATE TABLE IF NOT EXISTS tb (id INTEGER PRIMARY KEY, hotkey TEXT, details TEXT)")
             cursor.execute(
                 """
@@ -30,6 +30,9 @@ class ComputeDb:
                     success BOOLEAN,
                     elapsed_time REAL,
                     difficulty INTEGER,
+                    gpu TEXT,
+                    mode INTEGER,
+                    score REAL,
                     created_at TIMESTAMP,
                     FOREIGN KEY (uid) REFERENCES miner(uid) ON DELETE CASCADE,
                     FOREIGN KEY (ss58_address) REFERENCES miner(ss58_address) ON DELETE CASCADE

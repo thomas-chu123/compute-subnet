@@ -31,6 +31,7 @@ from compute import (
     miner_priority_specs,
     miner_priority_allocate,
     miner_priority_challenge, TRUSTED_VALIDATORS_HOTKEYS,
+    __testing_mode__
 )
 from compute.axon import ComputeSubnetAxon, ComputeSubnetSubtensor
 from compute.protocol import Specs, Allocate, Challenge
@@ -121,16 +122,21 @@ class Miner:
         self._metagraph = self.subtensor.metagraph(self.config.netuid)
         bt.logging.info(f"Metagraph: {self.metagraph}")
 
-        build_check_container('my-compute-subnet','sn27-check-container')
-        has_docker, msg = check_docker_availability()
-
-        if not has_docker:
-            bt.logging.error(msg)
-            exit(1)
+        if __testing_mode__ is True:
+            bt.logging.info(f"Avoid to check docker instance and continue the process")
+            has_docker = True
+            msg = '26.0.0'
         else:
-            bt.logging.info(f"Docker is installed. Version: {msg}")
+            build_check_container('my-compute-subnet','sn27-check-container')
+            has_docker, msg = check_docker_availability()
 
-        check_cuda_availability()
+            if not has_docker:
+                bt.logging.error(msg)
+                exit(1)
+            else:
+                bt.logging.info(f"Docker is installed. Version: {msg}")
+
+            check_cuda_availability()
 
         # Step 3: Set up hashcat for challenges
         self.hashcat_path = self.config.miner_hashcat_path

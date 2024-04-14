@@ -48,6 +48,7 @@ from compute import (
     __version_as_int__,
     weights_rate_limit,
     specs_timeout,
+    __testing_mode__
 )
 from compute.axon import ComputeSubnetSubtensor
 from compute.protocol import Challenge, Specs
@@ -476,6 +477,8 @@ class Validator:
             "success": success,
             "elapsed_time": elapsed_time,
             "difficulty": difficulty,
+            "mode": mode,
+            "gpu": "all"
         }
         with self.lock:
             self.pow_responses[uid] = response
@@ -660,9 +663,9 @@ class Validator:
                         self.pow_benchmark = self.new_pow_benchmark
                         self.pow_benchmark_success = {k: v for k, v in self.pow_benchmark.items() if v["success"] is True and v["elapsed_time"] < pow_timeout}
 
-                        benchmark = {k: v for k, v in self.pow_benchmark.items() }
-                        benchmark['mode'] = mode
-                        bt.logging.info("Benchmark Result:", benchmark)
+                        if __testing_mode__:
+                            for uid in self.pow_benchmark:
+                                self.pow_benchmark[uid]['score'] = self.scores[uid].item()
 
                         # Logs benchmarks for the validators
                         if len(self.pow_benchmark_success) > 0:
@@ -673,6 +676,7 @@ class Validator:
                             bt.logging.warning("❌ Benchmarking: All miners failed. An issue occurred.")
 
                         pow_benchmarks_list = [{**values, "uid": uid} for uid, values in self.pow_benchmark.items()]
+
                         update_challenge_details(self.db, pow_benchmarks_list)
 
                         self.sync_scores()
