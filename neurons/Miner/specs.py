@@ -62,7 +62,7 @@ class RequestSpecsProcessor:
 
             # the check_output is supported by GLIBC_2.35, need to workaround the process for lower versions
             if __testing_mode__:
-                result = subprocess.run([file_path], shell=True, text=True, check=True, stdout=subprocess.PIPE).stdout
+                result = subprocess.run([file_path], capture_output=True, text=True).stdout
             else:
                 result = subprocess.check_output([file_path], shell=True, text=True)
 
