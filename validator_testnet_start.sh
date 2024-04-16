@@ -1,1 +1,1 @@
-python3 neurons/validator.py --netuid 15 --netuid 15 --subtensor.network test --wallet.name validator --wallet.hotkey default --logging.debug >> validator_testnet.log &
+python3 neurons/validator.py --netuid 15 --axon.port 8091 --axon.external_port 11010 --subtensor.network test --wallet.name validator --wallet.hotkey default --logging.debug >> validator_testnet.log &

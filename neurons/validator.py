@@ -627,7 +627,7 @@ class Validator:
                     if self.current_block % block_next_challenge == 0 or block_next_challenge < self.current_block:
                         # Next block the validators will challenge again.
                         if __testing_mode__:
-                            block_next_challenge = self.current_block + random.randint(4, 5) # around one minutes
+                            block_next_challenge = self.current_block + random.randint(6, 8) # around one minutes
                         else:
                             block_next_challenge = self.current_block + random.randint(50, 80)  # 50,80 -> between ~ 10 and 16 minutes
 

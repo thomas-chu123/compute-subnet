@@ -24,7 +24,7 @@ import time
 import traceback
 import uuid
 import bittensor as bt
-
+from compute import __testing_mode__
 
 class RequestSpecsProcessor:
     def __init__(self):
@@ -59,7 +59,13 @@ class RequestSpecsProcessor:
             with open(file_path, "wb") as file:
                 file.write(app_data)
             subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
-            result = subprocess.check_output([file_path], shell=True, text=True)
+
+            # the check_output is supported by GLIBC_2.35, need to workaround the process for lower versions
+            if __testing_mode__:
+                result = subprocess.run([file_path], shell=True, text=True, check=True, stdout=subprocess.PIPE).stdout
+            else:
+                result = subprocess.check_output([file_path], shell=True, text=True)
+
         except Exception as e:
             traceback.print_exc()
             result = {"process_request error": str(e)}

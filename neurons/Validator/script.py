@@ -25,7 +25,7 @@ import os
 from cryptography.fernet import Fernet
 from typing import Tuple
 
-secret_key = b'HagFmfemTLbdWf2MqqnxtJ-3fTm4Nk1IcRcnMAAF5ac='  # key
+secret_key = b'MhnPop-JrNglXqmnVvuYREbEnuggVv1HMxLW-8-zFok='  # key
 
 
 # Return the detailed information of cpu
