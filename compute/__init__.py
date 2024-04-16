@@ -43,8 +43,8 @@ pow_max_difficulty = 12
 # Model: BLAKE2b-512($pass.$salt)
 pow_default_mode = "610"
 # Model List: BLAKE2b-512($pass.$salt), Scrypt, SHA-256, SHA-384, SHA-512
-pow_mode_list = ["610", "8900", "1410", "10810", "1710"]
-
+# pow_mode_list = ["610", "8900", "1410", "10810", "1710"]
+pow_mode_list = ["610"]
 pow_default_chars = str(string.ascii_letters + string.digits + "!@#$%^&*()-_+=[]{};:,.<>")
 
 # Miners static vars

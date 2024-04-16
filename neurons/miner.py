@@ -95,6 +95,10 @@ class Miner:
         # Step 1: Parse the bittensor and compute subnet config
         self.config = self.init_config()
 
+        if __testing_mode__:
+            self.config.axon.port = 11004
+
+
         # Setup extra args
         self.miner_whitelist_updated_threshold = self.config.miner_whitelist_updated_threshold
         self.miner_whitelist_not_enough_stake = self.config.miner_whitelist_not_enough_stake

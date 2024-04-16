@@ -20,10 +20,12 @@ import GPUtil
 import json
 import time
 import subprocess
+import re
+import os
 from cryptography.fernet import Fernet
 from typing import Tuple
 
-secret_key = b'H-sSErFt22GAIwkDAyyEEkYXYFU-1G0QcJiiBCtNqlM='  # key
+secret_key = b'E1cIAmiauSSdIbZ3NcPRs2xBs6dG25smtfR264fhl-U='  # key
 
 
 # Return the detailed information of cpu
@@ -224,14 +226,43 @@ def check_docker_container(container_id_or_name: str):
         return False
 
 
+def get_gpu_burn_info() -> dict:
+    """
+    Run the gpu_burn command to get the GPU's flops performance under FP64.
+    :return: A dictionary containing the flops performance.
+    """
+    os.chdir('/usr/bin/')
+    program = "/usr/bin/gpu_burn"
+    tensor_core = "-tc"
+    precision = "-d"
+    memory = "-m"
+    memory_usage = "2000"
+    benchmark_time = "5"
+    info = {}
+    try:
+        result = subprocess.run([program, tensor_core, precision, memory, memory_usage, benchmark_time],
+                                stdout=subprocess.PIPE)
+        flops_data = re.findall(r"100.0.* \((.*)\)", result.stdout.decode("utf-8"))
+        if bool(flops_data):
+            flops = flops_data[-1].split(' ')[0]
+            info["flops"] = flops
+        else:
+            info["flops"] = "0"
+    except Exception as e:
+        info["flops"] = "0"
+    return info
+
+
 def get_perf_info():
     cpu_info = get_cpu_info()
     gpu_info = get_gpu_info()
     hard_disk_info = get_hard_disk_info()
     ram_info = get_ram_info()
     has_docker = check_docker_availability()[0]
+    gpu_burn_info = get_gpu_burn_info()
 
-    perf_info = {"cpu": cpu_info, "gpu": gpu_info, "hard_disk": hard_disk_info, "ram": ram_info, "has_docker": has_docker}
+    perf_info = {"cpu": cpu_info, "gpu": gpu_info, "hard_disk": hard_disk_info, "ram": ram_info, "has_docker": has_docker,
+                 "gpu_burn": gpu_burn_info}
     perf_str = json.dumps(perf_info)
 
     cipher_suite = Fernet(secret_key)

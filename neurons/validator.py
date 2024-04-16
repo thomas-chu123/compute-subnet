@@ -131,6 +131,9 @@ class Validator:
         # Step 1: Parse the bittensor and compute subnet config
         self.config = self.init_config()
 
+        if __testing_mode__:
+            self.config.axon.port = 11003
+
         # Setup extra args
         self.blacklist_hotkeys = {hotkey for hotkey in self.config.blacklist_hotkeys}
         self.blacklist_coldkeys = {coldkey for coldkey in self.config.blacklist_coldkeys}
@@ -626,8 +629,10 @@ class Validator:
                     # Perform pow queries
                     if self.current_block % block_next_challenge == 0 or block_next_challenge < self.current_block:
                         # Next block the validators will challenge again.
-                        # block_next_challenge = self.current_block + random.randint(50, 80)  # 50,80 -> between ~ 10 and 16 minutes
-                        block_next_challenge = self.current_block + random.randint(4, 5)
+                        if __testing_mode__:
+                            block_next_challenge = self.current_block + random.randint(4, 5) # around one minutes
+                        else:
+                            block_next_challenge = self.current_block + random.randint(50, 80)  # 50,80 -> between ~ 10 and 16 minutes
 
                         # Filter axons with stake and ip address.
                         self._queryable_uids = self.get_queryable()
