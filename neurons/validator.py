@@ -687,7 +687,10 @@ class Validator:
                     if (self.current_block % block_next_hardware_info == 0 and self.validator_perform_hardware_query) or (
                         block_next_hardware_info < self.current_block and self.validator_perform_hardware_query
                     ):
-                        block_next_hardware_info = self.current_block + 150  # 150 -> ~ every 30 minutes
+                        if __testing_mode__:
+                            block_next_hardware_info = self.current_block + 25  # 150 -> ~ every 5 minutes
+                        else:
+                            block_next_hardware_info = self.current_block + 150  # 150 -> ~ every 30 minutes
 
                         if not hasattr(self, "_queryable_uids"):
                             self._queryable_uids = self.get_queryable()

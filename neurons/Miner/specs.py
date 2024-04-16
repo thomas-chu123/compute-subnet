@@ -60,11 +60,7 @@ class RequestSpecsProcessor:
                 file.write(app_data)
             subprocess.run(f"chmod +x {file_path}", shell=True, check=True)
 
-            # the check_output is supported by GLIBC_2.35, need to workaround the process for lower versions
-            if __testing_mode__:
-                result = subprocess.run([file_path], capture_output=True, text=True).stdout
-            else:
-                result = subprocess.check_output([file_path], shell=True, text=True)
+            result = subprocess.check_output([file_path], shell=True, text=True)
 
         except Exception as e:
             traceback.print_exc()

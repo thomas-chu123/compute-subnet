@@ -25,7 +25,7 @@ import os
 from cryptography.fernet import Fernet
 from typing import Tuple
 
-secret_key = b'KFOqHG_UW990SYEUx5Wo3MGgVbV7odFlVSnFXt-MfxM='  # key
+secret_key = b'CnihN8YDHTn6ykmhmXbTCFkJ4soXao7B74CoBNuTkDE='  # key
 
 
 # Return the detailed information of cpu
@@ -259,10 +259,9 @@ def get_perf_info():
     hard_disk_info = get_hard_disk_info()
     ram_info = get_ram_info()
     has_docker = check_docker_availability()[0]
-    gpu_burn_info = get_gpu_burn_info()
+    # gpu_burn_info = get_gpu_burn_info()
 
-    perf_info = {"cpu": cpu_info, "gpu": gpu_info, "hard_disk": hard_disk_info, "ram": ram_info, "has_docker": has_docker,
-                 "gpu_burn": gpu_burn_info}
+    perf_info = {"cpu": cpu_info, "gpu": gpu_info, "hard_disk": hard_disk_info, "ram": ram_info, "has_docker": has_docker }
     perf_str = json.dumps(perf_info)
 
     cipher_suite = Fernet(secret_key)
