@@ -131,9 +131,6 @@ class Validator:
         # Step 1: Parse the bittensor and compute subnet config
         self.config = self.init_config()
 
-        if __testing_mode__:
-            self.config.axon.port = 11003
-
         # Setup extra args
         self.blacklist_hotkeys = {hotkey for hotkey in self.config.blacklist_hotkeys}
         self.blacklist_coldkeys = {coldkey for coldkey in self.config.blacklist_coldkeys}
