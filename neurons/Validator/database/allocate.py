@@ -118,7 +118,6 @@ def update_miner_details(db: ComputeDb, hotkey_list, benchmark_responses: Tuple[
                     id INTEGER PRIMARY KEY,
                     hotkey TEXT UNIQUE,
                     details TEXT,
-                    flops REAL,
                     no_specs_count INTEGER DEFAULT 0
                 );
             """)

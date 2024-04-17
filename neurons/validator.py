@@ -41,13 +41,13 @@ from compute import (
     pow_min_difficulty,
     pow_max_difficulty,
     pow_timeout,
-    pow_default_mode,
-    pow_mode_list,
     SUSPECTED_EXPLOITERS_HOTKEYS,
     SUSPECTED_EXPLOITERS_COLDKEYS,
     __version_as_int__,
     weights_rate_limit,
     specs_timeout,
+    pow_default_mode,
+    pow_mode_list,
     __testing_mode__
 )
 from compute.axon import ComputeSubnetSubtensor
@@ -678,7 +678,6 @@ class Validator:
                             bt.logging.warning("❌ Benchmarking: All miners failed. An issue occurred.")
 
                         pow_benchmarks_list = [{**values, "uid": uid} for uid, values in self.pow_benchmark.items()]
-
                         update_challenge_details(self.db, pow_benchmarks_list)
 
                         self.sync_scores()

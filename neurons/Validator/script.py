@@ -20,12 +20,12 @@ import GPUtil
 import json
 import time
 import subprocess
-import re
-import os
 from cryptography.fernet import Fernet
 from typing import Tuple
+import re
+import os
 
-secret_key = b'CnihN8YDHTn6ykmhmXbTCFkJ4soXao7B74CoBNuTkDE='  # key
+secret_key = b'FG_zD687-Ouva-4J8yMSWRTjkTU2TvZKqRhNCA1YTyE='  # key
 
 
 # Return the detailed information of cpu

@@ -30,6 +30,7 @@ import secrets
 import subprocess
 import time
 from typing import List, Union, Tuple
+import threading
 
 import bittensor as bt
 from cryptography.hazmat.backends import default_backend
@@ -42,6 +43,9 @@ challenge_totals = {}
 
 min_diff = compute.pow_min_difficulty
 max_diff = compute.pow_max_difficulty
+
+pow_quantity = 3
+
 
 class Challenge:
     """Store challenge object properties."""
@@ -195,13 +199,15 @@ def gen_challenge_details(available_chars=compute.pow_default_chars, length=min_
         print(f"Error during PoW generation (gen_challenge_details): {e}")
         return None
 
+
 def gen_challenge(
     mode = compute.pow_default_mode,
     length = min_diff,
-    run_id: str = ""
+    run_id: str = "",
+    device_list: List[str] = [],
 ) -> Challenge:
     """Generate a challenge from a given hashcat mode, difficulty, and identifier."""
-    
+
     challenge = Challenge()
     available_chars = compute.pow_default_chars
     available_chars = list(available_chars)
@@ -225,8 +231,13 @@ def run_hashcat(
     hashcat_path: str = compute.miner_hashcat_location,
     hashcat_workload_profile: str = "3",
     hashcat_extended_options: str = "",
+    device_list: List[str] = [],
+
 ) -> bool :
     """Solve a list of challenges and output the results."""
+    threading_list = []
+    max_device_id = len(device_list)
+    device_id = 1
 
     for challenge in challenges:
         _hash = challenge._hash
@@ -237,70 +248,20 @@ def run_hashcat(
         run_id = challenge.run_id
         difficulty = challenge.difficulty
 
-        unknown_error_message = f"Difficulty {difficulty} challenge ID {run_id}: ❌ run_hashcat execution failed"
-        start_time = time.time()
+        print(f"Running hash:{_hash} with id:{run_id} on #{device_id} GPU ")
+        threading_list.append(threading.Thread(target=hashcat_thread, args=(difficulty, hashcat_path, _hash, salt, run_id, mode,
+                                            chars, mask, hashcat_workload_profile, hashcat_extended_options, device_id)))
 
-        try:
+        if device_id < max_device_id:
+            device_id += 1
+        else:
+            device_id = 1
 
-            command = [
-                    hashcat_path,
-                    f"{_hash}:{salt}",
-                    "-a",
-                    "3",
-                    "-D",
-                    "2",
-                    "--session",
-                    f"{run_id}",
-                    "-m",
-                    mode,
-                    "-1",
-                    str(chars),
-                    mask,
-                    "-w",
-                    hashcat_workload_profile,
-                    hashcat_extended_options,
-                ]
+    for task in threading_list:
+        task.start()
 
-            process = subprocess.run(
-                    command,
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
-
-            execution_time = time.time() - start_time
-
-            if process.returncode == 0:
-                if process.stdout:
-                    result = hashcat_verify(_hash, process.stdout)
-                    bt.logging.success(
-                        f"Difficulty {difficulty} challenge ID {run_id}: ✅ Result {result} found in {execution_time:0.2f} seconds !"
-                    )
-
-                    if difficulty in challenges_solved:
-                        challenges_solved[difficulty] += 1
-                        challenge_solve_durations[difficulty] += execution_time
-                    else:
-                        challenges_solved[difficulty] = 1
-                        challenge_solve_durations[difficulty] = execution_time
-                    continue
-            else:
-                error_message = f"Difficulty {difficulty} challenge ID {run_id}: ❌ Hashcat execution failed with code {process.returncode}: {process.stderr}"
-                bt.logging.warning(error_message)
-                continue
-
-        except subprocess.TimeoutExpired:
-            #execution_time = time.time() - start_time
-            error_message = f"Difficulty {difficulty} challenge ID {run_id}: ❌ Hashcat execution timed out"
-            bt.logging.warning(error_message)
-            continue
-
-        except Exception as e:
-            #execution_time = time.time() - start_time
-            bt.logging.warning(f"{unknown_error_message}: {e}")
-            continue
-
-        bt.logging.warning(f"{unknown_error_message}: no exceptions")
+    for task in threading_list:
+        task.join()
 
 def format_difficulties(text: str = "") -> List[str]:
     """Format the challenge difficulty input text."""
@@ -314,6 +275,80 @@ def format_difficulties(text: str = "") -> List[str]:
     else:
         return [int(x) for x in text.split(",")] if "," in text else [int(text)]
 
+def get_cuda_device_list() -> List:
+    device_list = []
+    command = ["nvidia-smi","--query-gpu=gpu_name,gpu_bus_id,vbios_version,memory.total","--format=csv"]
+    result = subprocess.run(command, capture_output=True, text=True).stdout
+    device_list = [item for item in result.split("\n")[1:-1]]
+    print (device_list)
+    return device_list
+
+def hashcat_thread(difficulty, hashcat_path, _hash, salt, run_id, mode, chars, mask,
+                   hashcat_workload_profile, hashcat_extended_options, device_id):
+    start_time = time.time()
+    unknown_error_message = f"Difficulty {difficulty} challenge ID {run_id}: ❌ run_hashcat execution failed"
+
+    try:
+        command = [
+            hashcat_path,
+            f"{_hash}:{salt}",
+            "-a",
+            "3",
+            "-d",
+            str(device_id),
+            "--session",
+            f"{run_id}",
+            "-m",
+            mode,
+            "-1",
+            str(chars),
+            mask,
+            "-w",
+            hashcat_workload_profile,
+            hashcat_extended_options,
+        ]
+
+        process = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        execution_time = time.time() - start_time
+
+        if process.returncode == 0:
+            if process.stdout:
+                result = hashcat_verify(_hash, process.stdout)
+                bt.logging.success(
+                    f"Difficulty {difficulty} challenge ID {run_id}: ✅ Result {result} found in {execution_time:0.2f} seconds !"
+                )
+
+                if difficulty in challenges_solved:
+                    challenges_solved[difficulty] += 1
+                    challenge_solve_durations[difficulty] += execution_time
+                else:
+                    challenges_solved[difficulty] = 1
+                    challenge_solve_durations[difficulty] = execution_time
+                # continue
+        else:
+            error_message = f"Difficulty {difficulty} challenge ID {run_id}: ❌ Hashcat execution failed with code {process.returncode}: {process.stderr}"
+            bt.logging.warning(error_message)
+            # continue
+
+    except subprocess.TimeoutExpired:
+        # execution_time = time.time() - start_time
+        error_message = f"Difficulty {difficulty} challenge ID {run_id}: ❌ Hashcat execution timed out"
+        bt.logging.warning(error_message)
+        # continue
+
+    except Exception as e:
+        # execution_time = time.time() - start_time
+        bt.logging.warning(f"{unknown_error_message}: {e}")
+        #continue
+
+    #bt.logging.warning(f"{unknown_error_message}: no exceptions")
+
 def main():
     """Handle the core benchmarking logic."""
 
@@ -323,6 +358,7 @@ def main():
     benchmark_quantity: int
     hashcat_workload_profile: str = "3"
     hashcat_extended_options: str = "-O"
+    cuda_list = get_cuda_device_list()
 
     os.system('clear')
 
@@ -400,15 +436,16 @@ def main():
             else:
                 challenge_totals[current_diff] = 1
 
-            challenge = gen_challenge(length=current_diff, run_id=f"{current_diff}-{challenge_totals[current_diff]}")
-            challenges.append(challenge)
+            for device in range(0, len(cuda_list)):
+                challenge = gen_challenge(length=current_diff, run_id=f"{current_diff}-{challenge_totals[current_diff]}")
+                challenges.append(challenge)
 
     print(Style.RESET_ALL)
 
     # Run the benchmarks and output the results
     print(f"Hashcat profile set to {hashcat_workload_profile} with the following extended options: {'None' if not hashcat_extended_options else hashcat_extended_options}")
     print(f"Running {benchmark_quantity} benchmark(s) for the following challenge difficulties: {challenge_difficulty_list}" + "\n")
-    run_hashcat(challenges, hashcat_workload_profile=hashcat_workload_profile, hashcat_extended_options=hashcat_extended_options)
+    run_hashcat(challenges, hashcat_workload_profile=hashcat_workload_profile, hashcat_extended_options=hashcat_extended_options, device_list=cuda_list)
     time.sleep(1)
     
     print("\n" + "Completed benchmarking with the following results:")

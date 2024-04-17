@@ -122,10 +122,8 @@ class Miner:
         self._metagraph = self.subtensor.metagraph(self.config.netuid)
         bt.logging.info(f"Metagraph: {self.metagraph}")
 
-        if __testing_mode__ is True:
+        if __testing_mode__:
             bt.logging.info(f"Avoid to check docker instance and continue the process")
-            has_docker = True
-            msg = '26.0.0'
         else:
             build_check_container('my-compute-subnet','sn27-check-container')
             has_docker, msg = check_docker_availability()
@@ -136,7 +134,7 @@ class Miner:
             else:
                 bt.logging.info(f"Docker is installed. Version: {msg}")
 
-            check_cuda_availability()
+        check_cuda_availability()
 
         # Step 3: Set up hashcat for challenges
         self.hashcat_path = self.config.miner_hashcat_path
