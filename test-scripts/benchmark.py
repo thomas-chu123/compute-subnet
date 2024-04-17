@@ -324,14 +324,14 @@ def hashcat_thread(difficulty, hashcat_path, _hash, salt, run_id, mode, chars, m
             hashcat_extended_options,
             "--potfile-disable",
             "--runtime",
-            "60",
+            "120",
         ]
 
         process = subprocess.run(
             command,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=120,
         )
 
         execution_time = time.time() - start_time
@@ -345,9 +345,12 @@ def hashcat_thread(difficulty, hashcat_path, _hash, salt, run_id, mode, chars, m
 
                 if device_id in challenges_solved:
                     if difficulty in challenges_solved[device_id]:
-                        challenges_solved[device_id] = {difficulty: difficulty + 1}
-                        challenge_solve_durations[device_id] = {difficulty: execution_time +
-                                                challenge_solve_durations[device_id][difficulty]}
+                        challenges_solved[device_id][difficulty] = challenges_solved[device_id][difficulty]  + 1
+                        challenge_solve_durations[device_id][difficulty] = (challenge_solve_durations[device_id][difficulty]
+                                                                            + execution_time)
+                    else:
+                        challenges_solved[device_id].update({difficulty: 1})
+                        challenge_solve_durations[device_id].update({difficulty: execution_time})
                 else:
                     challenges_solved[device_id] = {difficulty: 1}
                     challenge_solve_durations[device_id] = {difficulty: execution_time}
@@ -482,6 +485,8 @@ def main():
     run_hashcat(challenges, hashcat_workload_profile=hashcat_workload_profile,
                 hashcat_extended_options=hashcat_extended_options, device_list=cuda_list)
     time.sleep(1)
+    print(challenges_solved)
+    print(challenge_solve_durations)
 
     print("\n" + "Completed benchmarking with the following results:")
     # Convert the difficulty list to a set to prevent printing duplicate results. Sort the set to print the results in ascending difficulty order
