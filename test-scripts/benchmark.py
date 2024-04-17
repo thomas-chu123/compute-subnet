@@ -364,15 +364,17 @@ def main():
 
     # Check CUDA devices and docker availability
     check_cuda_availability()
-    build_benchmark_container('compute-subnet-benchmark','sn27-benchmark-container')
-    has_docker, msg = check_docker_availability()
 
-    if not has_docker:
-        bt.logging.error(msg)
-        print(Fore.RED + "DOCKER IS NOT INSTALLED OR IS NOT ACCESSIBLE. AS A RESULT, YOUR SCORE WILL BE REDUCED BY 50%!")
-    else:
-        print(Fore.GREEN + f"Docker is installed. Version: {msg}")
-        print(Fore.YELLOW + "Please confirm port 4444 is open by running 'sudo ufw allow 4444'. Without this, validators cannot use your machine's resources.")
+    if compute.__testing_mode__ == False:
+        build_benchmark_container('compute-subnet-benchmark','sn27-benchmark-container')
+        has_docker, msg = check_docker_availability()
+
+        if not has_docker:
+            bt.logging.error(msg)
+            print(Fore.RED + "DOCKER IS NOT INSTALLED OR IS NOT ACCESSIBLE. AS A RESULT, YOUR SCORE WILL BE REDUCED BY 50%!")
+        else:
+            print(Fore.GREEN + f"Docker is installed. Version: {msg}")
+            print(Fore.YELLOW + "Please confirm port 4444 is open by running 'sudo ufw allow 4444'. Without this, validators cannot use your machine's resources.")
 
     print(Style.RESET_ALL)
 
