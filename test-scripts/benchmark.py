@@ -40,6 +40,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 challenges_solved = {}
 challenge_solve_durations = {}
 challenge_totals = {}
+challenge_allocated = {}
 
 min_diff = compute.pow_min_difficulty
 max_diff = compute.pow_max_difficulty
@@ -50,15 +51,15 @@ pow_quantity = 3
 class Challenge:
     """Store challenge object properties."""
 
-    def __init__(self, 
-    _hash: str = "",
-    salt: str = "",
-    mode: str = "",
-    chars: str = "",
-    mask: str = "",
-    difficulty: int = min_diff,
-    run_id: str = "",
-    ):
+    def __init__(self,
+                 _hash: str = "",
+                 salt: str = "",
+                 mode: str = "",
+                 chars: str = "",
+                 mask: str = "",
+                 difficulty: int = min_diff,
+                 run_id: str = "",
+                 ):
         self._hash = _hash
         self.salt = salt
         self.mode = mode
@@ -66,6 +67,7 @@ class Challenge:
         self.mask = mask
         self.run_id = run_id
         self.difficulty = difficulty
+
 
 def build_benchmark_container(image_name: str, container_name: str):
     """Create the benchmark container to check Docker's functionality."""
@@ -92,21 +94,23 @@ def build_benchmark_container(image_name: str, container_name: str):
     finally:
         client.close()
 
+
 def check_docker_availability() -> Tuple[bool, str]:
     """Check Docker is available and functioning correctly."""
 
     try:
         # Run 'docker --version' command
-        result = subprocess.run(["docker", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True)
+        result = subprocess.run(["docker", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                                check=True)
         # If the command was successful, Docker is installed
         docker_version = result.stdout.strip()
-        
+
         if check_docker_container('sn27-benchmark-container') is True:
             return True, docker_version
         else:
             error_message = "Docker is installed, but is unable to create or run a container. Please verify your system's permissions."
             return False, error_message
-        
+
     except Exception as e:  # Catch all exceptions
         # If the command failed, Docker is not installed
         error_message = (
@@ -115,23 +119,24 @@ def check_docker_availability() -> Tuple[bool, str]:
             "Note: running a miner within containerized instances is not supported."
         )
         return False, error_message
-    
+
+
 def check_docker_container(container_id_or_name: str):
     """Confirm the benchmark container can be created and returns the correct output in its logs."""
 
     try:
         # Start the container
-        subprocess.run(["docker", "start", container_id_or_name], 
-                        check=True,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL)
+        subprocess.run(["docker", "start", container_id_or_name],
+                       check=True,
+                       stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL)
 
         # Wait for the container to finish running
         subprocess.run(["docker", "wait", container_id_or_name],
-                        check=True,
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL)
-        
+                       check=True,
+                       stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL)
+
         # Get the logs from the container
         logs_result = subprocess.run(
             ["docker", "logs", container_id_or_name],
@@ -150,7 +155,8 @@ def check_docker_container(container_id_or_name: str):
     except subprocess.CalledProcessError as e:
         # Handle errors from the Docker CLI
         return False
-    
+
+
 def check_cuda_availability():
     """Verify the number of available CUDA devices (Nvidia GPUs)"""
 
@@ -162,6 +168,7 @@ def check_cuda_availability():
     else:
         print(Fore.RED + "CUDA is not available or not properly configured on this system.")
 
+
 def gen_hash(password, salt=None):
     """Generate the hash and salt for a challenge."""
 
@@ -170,6 +177,7 @@ def gen_hash(password, salt=None):
     data = salted_password.encode("utf-8")
     hash_result = hashlib.blake2b(data).hexdigest()
     return f"$BLAKE2${hash_result}", salt
+
 
 def gen_hash_password(available_chars=compute.pow_default_chars, length=min_diff):
     """Generate a random string to be used as the challenge hash password."""
@@ -187,6 +195,7 @@ def gen_hash_password(available_chars=compute.pow_default_chars, length=min_diff
     random.seed(seed)
     return "".join(random.choice(available_chars) for _ in range(length))
 
+
 def gen_challenge_details(available_chars=compute.pow_default_chars, length=min_diff):
     """Generate the hashing details for a challenge."""
 
@@ -201,10 +210,10 @@ def gen_challenge_details(available_chars=compute.pow_default_chars, length=min_
 
 
 def gen_challenge(
-    mode = compute.pow_default_mode,
-    length = min_diff,
-    run_id: str = "",
-    device_list: List[str] = [],
+        mode=compute.pow_default_mode,
+        length=min_diff,
+        run_id: str = "",
+        device_list: List[str] = [],
 ) -> Challenge:
     """Generate a challenge from a given hashcat mode, difficulty, and identifier."""
 
@@ -213,9 +222,11 @@ def gen_challenge(
     available_chars = list(available_chars)
     random.shuffle(available_chars)
     available_chars = "".join(available_chars)
-    password, challenge._hash, challenge.salt, challenge.mask = gen_challenge_details(available_chars=available_chars[:10], length=length)
+    password, challenge._hash, challenge.salt, challenge.mask = gen_challenge_details(
+        available_chars=available_chars[:10], length=length)
     challenge.mode, challenge.chars, challenge.difficulty, challenge.run_id = mode, available_chars[:10], length, run_id
     return challenge
+
 
 def hashcat_verify(_hash, output) -> Union[str, None]:
     """Verify the hashcat result is correct."""
@@ -225,15 +236,16 @@ def hashcat_verify(_hash, output) -> Union[str, None]:
             return item.strip().split(":")[-1]
     return None
 
-def run_hashcat(
-    challenges: List[Challenge],
-    timeout: int = compute.pow_timeout,
-    hashcat_path: str = compute.miner_hashcat_location,
-    hashcat_workload_profile: str = "3",
-    hashcat_extended_options: str = "",
-    device_list: List[str] = [],
 
-) -> bool :
+def run_hashcat(
+        challenges: List[Challenge],
+        timeout: int = compute.pow_timeout,
+        hashcat_path: str = compute.miner_hashcat_location,
+        hashcat_workload_profile: str = "3",
+        hashcat_extended_options: str = "",
+        device_list: List[str] = [],
+
+) -> bool:
     """Solve a list of challenges and output the results."""
     threading_list = []
     max_device_id = len(device_list)
@@ -249,8 +261,15 @@ def run_hashcat(
         difficulty = challenge.difficulty
 
         print(f"Running hash:{_hash} with id:{run_id} on #{device_id} GPU ")
-        threading_list.append(threading.Thread(target=hashcat_thread, args=(difficulty, hashcat_path, _hash, salt, run_id, mode,
-                                            chars, mask, hashcat_workload_profile, hashcat_extended_options, device_id)))
+        if device_id in challenge_allocated:
+            challenge_allocated[device_id] += 1
+        else:
+            challenge_allocated[device_id] = 1
+
+        threading_list.append(
+            threading.Thread(target=hashcat_thread, args=(difficulty, hashcat_path, _hash, salt, run_id, mode,
+                                                          chars, mask, hashcat_workload_profile,
+                                                          hashcat_extended_options, device_id)))
 
         if device_id < max_device_id:
             device_id += 1
@@ -263,25 +282,32 @@ def run_hashcat(
     for task in threading_list:
         task.join()
 
-def format_difficulties(text: str = "") -> List[str]:
+
+def format_difficulties(text: str = "") -> List[int]:
     """Format the challenge difficulty input text."""
 
     text = text.replace(" ", ",")
     text = text.replace("  ", ",")
     text = text.replace(",,", ",")
 
+    if ":" in text:
+        return [int(text.split(":")[0]) for _ in range(int(text.split(":")[1]))]
+
+
     if text.lower() == "all" or not text:
         return list(range(min_diff, max_diff + 1, 1))
     else:
         return [int(x) for x in text.split(",")] if "," in text else [int(text)]
 
+
 def get_cuda_device_list() -> List:
     device_list = []
-    command = ["nvidia-smi","--query-gpu=gpu_name,gpu_bus_id,vbios_version,memory.total","--format=csv"]
+    command = ["nvidia-smi", "--query-gpu=gpu_name,gpu_bus_id,vbios_version,memory.total", "--format=csv"]
     result = subprocess.run(command, capture_output=True, text=True).stdout
     device_list = [item for item in result.split("\n")[1:-1]]
-    print (device_list)
+    print(device_list)
     return device_list
+
 
 def hashcat_thread(difficulty, hashcat_path, _hash, salt, run_id, mode, chars, mask,
                    hashcat_workload_profile, hashcat_extended_options, device_id):
@@ -306,13 +332,16 @@ def hashcat_thread(difficulty, hashcat_path, _hash, salt, run_id, mode, chars, m
             "-w",
             hashcat_workload_profile,
             hashcat_extended_options,
+            "--potfile-disable",
+            "--runtime",
+            "120",
         ]
 
         process = subprocess.run(
             command,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=120,
         )
 
         execution_time = time.time() - start_time
@@ -324,12 +353,17 @@ def hashcat_thread(difficulty, hashcat_path, _hash, salt, run_id, mode, chars, m
                     f"Difficulty {difficulty} challenge ID {run_id}: ✅ Result {result} found in {execution_time:0.2f} seconds !"
                 )
 
-                if difficulty in challenges_solved:
-                    challenges_solved[difficulty] += 1
-                    challenge_solve_durations[difficulty] += execution_time
+                if device_id in challenges_solved:
+                    if difficulty in challenges_solved[device_id]:
+                        challenges_solved[device_id][difficulty] = challenges_solved[device_id][difficulty]  + 1
+                        challenge_solve_durations[device_id][difficulty] = (challenge_solve_durations[device_id][difficulty]
+                                                                            + execution_time)
+                    else:
+                        challenges_solved[device_id].update({difficulty: 1})
+                        challenge_solve_durations[device_id].update({difficulty: execution_time})
                 else:
-                    challenges_solved[difficulty] = 1
-                    challenge_solve_durations[difficulty] = execution_time
+                    challenges_solved[device_id] = {difficulty: 1}
+                    challenge_solve_durations[device_id] = {difficulty: execution_time}
                 # continue
         else:
             error_message = f"Difficulty {difficulty} challenge ID {run_id}: ❌ Hashcat execution failed with code {process.returncode}: {process.stderr}"
@@ -345,9 +379,10 @@ def hashcat_thread(difficulty, hashcat_path, _hash, salt, run_id, mode, chars, m
     except Exception as e:
         # execution_time = time.time() - start_time
         bt.logging.warning(f"{unknown_error_message}: {e}")
-        #continue
+        # continue
 
-    #bt.logging.warning(f"{unknown_error_message}: no exceptions")
+    # bt.logging.warning(f"{unknown_error_message}: no exceptions")
+
 
 def main():
     """Handle the core benchmarking logic."""
@@ -364,15 +399,19 @@ def main():
 
     # Check CUDA devices and docker availability
     check_cuda_availability()
-    build_benchmark_container('compute-subnet-benchmark','sn27-benchmark-container')
-    has_docker, msg = check_docker_availability()
 
-    if not has_docker:
-        bt.logging.error(msg)
-        print(Fore.RED + "DOCKER IS NOT INSTALLED OR IS NOT ACCESSIBLE. AS A RESULT, YOUR SCORE WILL BE REDUCED BY 50%!")
-    else:
-        print(Fore.GREEN + f"Docker is installed. Version: {msg}")
-        print(Fore.YELLOW + "Please confirm port 4444 is open by running 'sudo ufw allow 4444'. Without this, validators cannot use your machine's resources.")
+    if compute.__testing_mode__ == False:
+        build_benchmark_container('compute-subnet-benchmark', 'sn27-benchmark-container')
+        has_docker, msg = check_docker_availability()
+
+        if not has_docker:
+            bt.logging.error(msg)
+            print(
+                Fore.RED + "DOCKER IS NOT INSTALLED OR IS NOT ACCESSIBLE. AS A RESULT, YOUR SCORE WILL BE REDUCED BY 50%!")
+        else:
+            print(Fore.GREEN + f"Docker is installed. Version: {msg}")
+            print(
+                Fore.YELLOW + "Please confirm port 4444 is open by running 'sudo ufw allow 4444'. Without this, validators cannot use your machine's resources.")
 
     print(Style.RESET_ALL)
 
@@ -380,15 +419,18 @@ def main():
     print("Example 1: 6")
     print("Example 2: 7 8 9")
     print("Example 3: 10, 11, 12")
-    print("Example 4: all" + "\n")
+    print("Example 4: 6:7")
+    print("Example 5: all" + "\n")
 
     while True:
         try:
-            selected_difficulties = input("What challenge difficulties would you like to benchmark? Some examples are listed above. (all): ")
+            selected_difficulties = input(
+                "What challenge difficulties would you like to benchmark? Some examples are listed above. (all): ")
             challenge_difficulty_list = format_difficulties(selected_difficulties)
             break
         except:
-            print("Please enter a valid difficulty or list of difficulties. You may also leave this section empty to benchmark all difficulties.")
+            print(
+                "Please enter a valid difficulty or list of difficulties. You may also leave this section empty to benchmark all difficulties.")
 
     while True:
         try:
@@ -407,8 +449,9 @@ def main():
     except:
         print("Invalid entry. Defaulting to workload profile 3.")
         hashcat_workload_profile = "3"
-        
-    hashcat_extended_options = input("Enter any extra hashcat options to use. Leave this empty to use the recommended -O option. Enter None for no extended options. (-O): ")
+
+    hashcat_extended_options = input(
+        "Enter any extra hashcat options to use. Leave this empty to use the recommended -O option. Enter None for no extended options. (-O): ")
     if hashcat_extended_options.lower() == "none":
         hashcat_extended_options = ""
     elif not hashcat_extended_options:
@@ -424,10 +467,12 @@ def main():
         current_diff = difficulty
 
         if difficulty < min_diff:
-            print(Fore.YELLOW + f"Difficulty {difficulty} is below the minimum difficulty of {min_diff}. Adjusting it to {min_diff}.")
+            print(
+                Fore.YELLOW + f"Difficulty {difficulty} is below the minimum difficulty of {min_diff}. Adjusting it to {min_diff}.")
             current_diff = challenge_difficulty_list[i] = min_diff
         elif difficulty > max_diff:
-            print(Fore.YELLOW + f"Difficulty {difficulty} is above the maximum difficulty of {max_diff}. Adjusting it to {max_diff}.")
+            print(
+                Fore.YELLOW + f"Difficulty {difficulty} is above the maximum difficulty of {max_diff}. Adjusting it to {max_diff}.")
             current_diff = challenge_difficulty_list[i] = max_diff
 
         for num in range(0, benchmark_quantity):
@@ -436,31 +481,44 @@ def main():
             else:
                 challenge_totals[current_diff] = 1
 
-            for device in range(0, len(cuda_list)):
-                challenge = gen_challenge(length=current_diff, run_id=f"{current_diff}-{challenge_totals[current_diff]}")
-                challenges.append(challenge)
+            challenge = gen_challenge(length=current_diff,
+                                    run_id=f"{current_diff}-{challenge_totals[current_diff]}")
+            challenges.append(challenge)
 
     print(Style.RESET_ALL)
 
     # Run the benchmarks and output the results
-    print(f"Hashcat profile set to {hashcat_workload_profile} with the following extended options: {'None' if not hashcat_extended_options else hashcat_extended_options}")
-    print(f"Running {benchmark_quantity} benchmark(s) for the following challenge difficulties: {challenge_difficulty_list}" + "\n")
-    run_hashcat(challenges, hashcat_workload_profile=hashcat_workload_profile, hashcat_extended_options=hashcat_extended_options, device_list=cuda_list)
+    print(
+        f"Hashcat profile set to {hashcat_workload_profile} with the following extended options: {'None' if not hashcat_extended_options else hashcat_extended_options}")
+    print(
+        f"Running {benchmark_quantity} benchmark(s) for the following challenge difficulties: {challenge_difficulty_list}" + "\n")
+    run_hashcat(challenges, hashcat_workload_profile=hashcat_workload_profile,
+                hashcat_extended_options=hashcat_extended_options, device_list=cuda_list)
     time.sleep(1)
-    
+    # print(challenges_solved)
+    # print(challenge_solve_durations)
+
     print("\n" + "Completed benchmarking with the following results:")
     # Convert the difficulty list to a set to prevent printing duplicate results. Sort the set to print the results in ascending difficulty order
-    for difficulty in sorted(set(challenge_difficulty_list)):
-        total = challenge_totals[difficulty]
+    for dev_id in range(1, len(cuda_list) + 1):
+        print(f"GPU #{str(dev_id)} results:")
+        for difficulty in sorted(set(challenge_difficulty_list)):
+            total = challenge_totals[difficulty]
+            total_by_device = challenge_allocated[dev_id]
 
-        if difficulty in challenges_solved:
-            solved = challenges_solved[difficulty]
-            success_percentage = solved / total * 100
-            solve_time = challenge_solve_durations[difficulty] / solved
+            if difficulty in challenges_solved[dev_id]:
+                solved = challenges_solved[dev_id][difficulty]
+                success_percentage = solved / total * 100
+                success_percentage_device = solved / total_by_device * 100
+                solve_time = challenge_solve_durations[dev_id][difficulty] / solved
 
-            print(f"Difficulty {difficulty} | Successfully solved {solved}/{total} challenge(s) ({success_percentage:0.2f}%) with an average solve time of {solve_time:0.2f} seconds.")
-        else:
-            print(f"Difficulty {difficulty} | Failed all {total} challenge(s) with a 0% success rate.")
+                print(
+                    f"Difficulty {difficulty} | Successfully solved {solved}/{total} challenge(s) ({success_percentage:0.2f}%) with an average solve time of {solve_time:0.2f} seconds.")
+                print(
+                    f"Total: Difficulty {difficulty} | Successfully solved {solved}/{total_by_device} challenge(s) ({success_percentage_device:0.2f}%) on GPU#{str(dev_id)} with an average solve time of {solve_time:0.2f} seconds.")
+            else:
+                print(f"Difficulty {difficulty} | Failed all {total} challenge(s) with a 0% success rate.")
+        print("")
 
 if __name__ == "__main__":
     main()
