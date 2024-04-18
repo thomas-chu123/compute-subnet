@@ -277,12 +277,16 @@ def run_hashcat(
         task.join()
 
 
-def format_difficulties(text: str = "") -> List[str]:
+def format_difficulties(text: str = "") -> List[int]:
     """Format the challenge difficulty input text."""
 
     text = text.replace(" ", ",")
     text = text.replace("  ", ",")
     text = text.replace(",,", ",")
+
+    if ":" in text:
+        return [int(text.split(":")[0]) for _ in range(int(text.split(":")[1]))]
+
 
     if text.lower() == "all" or not text:
         return list(range(min_diff, max_diff + 1, 1))
@@ -409,7 +413,8 @@ def main():
     print("Example 1: 6")
     print("Example 2: 7 8 9")
     print("Example 3: 10, 11, 12")
-    print("Example 4: all" + "\n")
+    print("Example 4: 6:7")
+    print("Example 5: all" + "\n")
 
     while True:
         try:
@@ -485,8 +490,8 @@ def main():
     run_hashcat(challenges, hashcat_workload_profile=hashcat_workload_profile,
                 hashcat_extended_options=hashcat_extended_options, device_list=cuda_list)
     time.sleep(1)
-    print(challenges_solved)
-    print(challenge_solve_durations)
+    # print(challenges_solved)
+    # print(challenge_solve_durations)
 
     print("\n" + "Completed benchmarking with the following results:")
     # Convert the difficulty list to a set to prevent printing duplicate results. Sort the set to print the results in ascending difficulty order
