@@ -40,6 +40,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 challenges_solved = {}
 challenge_solve_durations = {}
 challenge_totals = {}
+challenge_allocated = {}
 
 min_diff = compute.pow_min_difficulty
 max_diff = compute.pow_max_difficulty
@@ -260,6 +261,11 @@ def run_hashcat(
         difficulty = challenge.difficulty
 
         print(f"Running hash:{_hash} with id:{run_id} on #{device_id} GPU ")
+        if device_id in challenge_allocated:
+            challenge_allocated[device_id] += 1
+        else:
+            challenge_allocated[device_id] = 1
+
         threading_list.append(
             threading.Thread(target=hashcat_thread, args=(difficulty, hashcat_path, _hash, salt, run_id, mode,
                                                           chars, mask, hashcat_workload_profile,
@@ -498,14 +504,18 @@ def main():
         print(f"GPU #{str(dev_id)} results:")
         for difficulty in sorted(set(challenge_difficulty_list)):
             total = challenge_totals[difficulty]
+            total_by_device = challenge_allocated[dev_id]
 
             if difficulty in challenges_solved[dev_id]:
                 solved = challenges_solved[dev_id][difficulty]
                 success_percentage = solved / total * 100
+                success_percentage_device = solved / total_by_device * 100
                 solve_time = challenge_solve_durations[dev_id][difficulty] / solved
 
                 print(
                     f"Difficulty {difficulty} | Successfully solved {solved}/{total} challenge(s) ({success_percentage:0.2f}%) with an average solve time of {solve_time:0.2f} seconds.")
+                print(
+                    f"Total: Difficulty {difficulty} | Successfully solved {solved}/{total} challenge(s) ({success_percentage_device:0.2f}%) on GPU#{str(dev_id)} with an average solve time of {solve_time:0.2f} seconds.")
             else:
                 print(f"Difficulty {difficulty} | Failed all {total} challenge(s) with a 0% success rate.")
         print("")
