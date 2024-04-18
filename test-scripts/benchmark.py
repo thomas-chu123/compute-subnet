@@ -475,10 +475,9 @@ def main():
             else:
                 challenge_totals[current_diff] = 1
 
-            for device in range(0, len(cuda_list)):
-                challenge = gen_challenge(length=current_diff,
-                                          run_id=f"{current_diff}-{challenge_totals[current_diff]}-{str(device + 1)}")
-                challenges.append(challenge)
+            challenge = gen_challenge(length=current_diff,
+                                    run_id=f"{current_diff}-{challenge_totals[current_diff]}")
+            challenges.append(challenge)
 
     print(Style.RESET_ALL)
 
