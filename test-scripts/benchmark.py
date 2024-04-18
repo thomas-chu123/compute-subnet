@@ -515,7 +515,7 @@ def main():
                 print(
                     f"Difficulty {difficulty} | Successfully solved {solved}/{total} challenge(s) ({success_percentage:0.2f}%) with an average solve time of {solve_time:0.2f} seconds.")
                 print(
-                    f"Total: Difficulty {difficulty} | Successfully solved {solved}/{total} challenge(s) ({success_percentage_device:0.2f}%) on GPU#{str(dev_id)} with an average solve time of {solve_time:0.2f} seconds.")
+                    f"Total: Difficulty {difficulty} | Successfully solved {solved}/{total_by_device} challenge(s) ({success_percentage_device:0.2f}%) on GPU#{str(dev_id)} with an average solve time of {solve_time:0.2f} seconds.")
             else:
                 print(f"Difficulty {difficulty} | Failed all {total} challenge(s) with a 0% success rate.")
         print("")
