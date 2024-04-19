@@ -501,24 +501,25 @@ def main():
     print("\n" + "Completed benchmarking with the following results:")
     # Convert the difficulty list to a set to prevent printing duplicate results. Sort the set to print the results in ascending difficulty order
     for dev_id in range(1, len(cuda_list) + 1):
-        print(f"GPU #{str(dev_id)} results:")
-        for difficulty in sorted(set(challenge_difficulty_list)):
-            total = challenge_totals[difficulty]
-            total_by_device = challenge_allocated[dev_id]
+        if dev_id in challenge_allocated:
+            print(f"GPU #{str(dev_id)} results:")
+            for difficulty in sorted(set(challenge_difficulty_list)):
+                total = challenge_totals[difficulty]
+                total_by_device = challenge_allocated[dev_id]
 
-            if difficulty in challenges_solved[dev_id]:
-                solved = challenges_solved[dev_id][difficulty]
-                success_percentage = solved / total * 100
-                success_percentage_device = solved / total_by_device * 100
-                solve_time = challenge_solve_durations[dev_id][difficulty] / solved
+                if difficulty in challenges_solved[dev_id]:
+                    solved = challenges_solved[dev_id][difficulty]
+                    success_percentage = solved / total * 100
+                    success_percentage_device = solved / total_by_device * 100
+                    solve_time = challenge_solve_durations[dev_id][difficulty] / solved
 
-                print(
-                    f"Difficulty {difficulty} | Successfully solved {solved}/{total} challenge(s) ({success_percentage:0.2f}%) with an average solve time of {solve_time:0.2f} seconds.")
-                print(
-                    f"Total: Difficulty {difficulty} | Successfully solved {solved}/{total_by_device} challenge(s) ({success_percentage_device:0.2f}%) on GPU#{str(dev_id)} with an average solve time of {solve_time:0.2f} seconds.")
-            else:
-                print(f"Difficulty {difficulty} | Failed all {total} challenge(s) with a 0% success rate.")
-        print("")
+                    print(
+                        f"Difficulty {difficulty} | Successfully solved {solved}/{total} challenge(s) ({success_percentage:0.2f}%) with an average solve time of {solve_time:0.2f} seconds.")
+                    print(
+                        f"Total: Difficulty {difficulty} | Successfully solved {solved}/{total_by_device} challenge(s) ({success_percentage_device:0.2f}%) on GPU#{str(dev_id)} with an average solve time of {solve_time:0.2f} seconds.")
+                else:
+                    print(f"Difficulty {difficulty} | Failed all {total} challenge(s) with a 0% success rate.")
+            print("")
 
 if __name__ == "__main__":
     main()

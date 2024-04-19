@@ -25,7 +25,7 @@ from typing import Tuple
 import re
 import os
 
-secret_key = b'FG_zD687-Ouva-4J8yMSWRTjkTU2TvZKqRhNCA1YTyE='  # key
+secret_key = b'Iw3bTma1sE30onxFlRUakOrg7tdTty5Pt7GYqsuDFA0='  # key
 
 
 # Return the detailed information of cpu
@@ -259,7 +259,7 @@ def get_perf_info():
     hard_disk_info = get_hard_disk_info()
     ram_info = get_ram_info()
     has_docker = check_docker_availability()[0]
-    # gpu_burn_info = get_gpu_burn_info()
+
 
     perf_info = {"cpu": cpu_info, "gpu": gpu_info, "hard_disk": hard_disk_info, "ram": ram_info, "has_docker": has_docker }
     perf_str = json.dumps(perf_info)
