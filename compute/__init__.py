@@ -21,6 +21,7 @@ import string
 __version__ = "1.4.2"
 __minimal_miner_version__ = "1.4.2"
 __minimal_validator_version__ = "1.4.2"
+__testing_mode__ = True
 
 version_split = __version__.split(".")
 __version_as_int__ = (100 * int(version_split[0])) + (10 * int(version_split[1])) + (1 * int(version_split[2]))
@@ -42,7 +43,7 @@ pow_max_difficulty = 12
 # Model: BLAKE2b-512($pass.$salt)
 pow_default_mode = "610"
 pow_default_chars = str(string.ascii_letters + string.digits + "!@#$%^&*()-_+=[]{};:,.<>")
-
+pow_mode_list = ["610"]
 # Miners static vars
 miner_priority_specs = 1  # Lowest priority
 miner_priority_challenge = 2  # Medium priority
