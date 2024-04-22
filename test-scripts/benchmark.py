@@ -36,6 +36,8 @@ import bittensor as bt
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+import base64
+import struct
 
 challenges_solved = {}
 challenge_solve_durations = {}
@@ -47,6 +49,7 @@ max_diff = compute.pow_max_difficulty
 
 pow_quantity = 3
 
+pow_mode_list = ["610","1410","10810","1710"]
 
 class Challenge:
     """Store challenge object properties."""
@@ -169,14 +172,106 @@ def check_cuda_availability():
         print(Fore.RED + "CUDA is not available or not properly configured on this system.")
 
 
-def gen_hash(password, salt=None):
-    """Generate the hash and salt for a challenge."""
+def random_numeric_string(length):
+    numbers = '0123456789'
+    return ''.join([numbers[random.randint(0, 9)] for _ in range(length)])
 
-    salt = secrets.token_hex(8) if salt is None else salt
-    salted_password = password + salt
-    data = salted_password.encode("utf-8")
-    hash_result = hashlib.blake2b(data).hexdigest()
-    return f"$BLAKE2${hash_result}", salt
+def gen_hash(password, salt=None, mode: str = compute.pow_default_mode):
+    """Generate the hash and salt for a challenge."""
+    # check the mode selection for the hash
+    if mode == '8900': # For Scrypt
+        salt = secrets.token_bytes(24) if salt is None else base64.b64decode(salt.encode("utf-8"))
+        password_bytes = password.encode('ascii')
+        hashed_password = hashlib.scrypt(password_bytes, salt=salt, n=1024, r=1, p=1, dklen=32)
+        hash_result = str(base64.b64encode(hashed_password).decode('utf-8'))
+        salt = str(base64.b64encode(salt).decode('utf-8'))
+        return f"SCRYPT:1024:1:1:{hash_result}", salt
+    elif mode== '610' or mode== '1410' or mode== '10810' or mode== '1710':  # For Blake2b-512, SHA-256, SHA-384, SHA-512
+        salt = secrets.token_hex(8) if salt is None else salt
+        salted_password = password + salt
+        data = salted_password.encode("utf-8")
+        padding = ""
+        if mode == '610':
+            hash_result = hashlib.blake2b(data).hexdigest()
+            padding = "$BLAKE2$"
+        elif mode == '1410':
+            hash_result = hashlib.sha256(data).hexdigest()
+        elif mode == '10810':
+            hash_result = hashlib.sha384(data).hexdigest()
+        elif mode == '1710':
+            hash_result = hashlib.sha512(data).hexdigest()
+        return f"{padding}{hash_result}", salt
+    elif mode == '7801':
+        if not salt:
+            salt = random_numeric_string(8)
+
+        theMagicArray_s = (
+            b"\x91\xac\x51\x14\x9f\x67\x54\x43\x24\xe7\x3b\xe0\x28\x74\x7b\xc2"
+            b"\x86\x33\x13\xeb\x5a\x4f\xcb\x5c\x08\x0a\x73\x37\x0e\x5d\x1c\x2f"
+            b"\x33\x8f\xe6\xe5\xf8\x9b\xae\xdd\x16\xf2\x4b\x8d\x2c\xe1\xd4\xdc"
+            b"\xb0\xcb\xdf\x9d\xd4\x70\x6d\x17\xf9\x4d\x42\x3f\x9b\x1b\x11\x94"
+            b"\x9f\x5b\xc1\x9b\x06\x05\x9d\x03\x9d\x5e\x13\x8a\x1e\x9a\x6a\xe8"
+            b"\xd9\x7c\x14\x17\x58\xc7\x2a\xf6\xa1\x99\x63\x0a\xd7\xfd\x70\xc3"
+            b"\xf6\x5e\x74\x13\x03\xc9\x0b\x04\x26\x98\xf7\x26\x8a\x92\x93\x25"
+            b"\xb0\xa2\x0d\x23\xed\x63\x79\x6d\x13\x32\xfa\x3c\x35\x02\x9a\xa3"
+            b"\xb3\xdd\x8e\x0a\x24\xbf\x51\xc3\x7c\xcd\x55\x9f\x37\xaf\x94\x4c"
+            b"\x29\x08\x52\x82\xb2\x3b\x4e\x37\x9f\x17\x07\x91\x11\x3b\xfd\xcd"
+        )
+
+        salt = salt.upper()
+        word_salt = (password + salt).encode('utf-8')
+        digest = hashlib.sha1(word_salt).digest()
+
+        a, b, c, d, e = struct.unpack("IIIII", digest)
+
+        length_magic_array = 0x20
+        offset_magic_array = 0
+
+        length_magic_array += ((a >> 0) & 0xff) % 6
+        length_magic_array += ((a >> 8) & 0xff) % 6
+        length_magic_array += ((a >> 16) & 0xff) % 6
+        length_magic_array += ((a >> 24) & 0xff) % 6
+        length_magic_array += ((b >> 0) & 0xff) % 6
+        length_magic_array += ((b >> 8) & 0xff) % 6
+        length_magic_array += ((b >> 16) & 0xff) % 6
+        length_magic_array += ((b >> 24) & 0xff) % 6
+        length_magic_array += ((c >> 0) & 0xff) % 6
+        length_magic_array += ((c >> 8) & 0xff) % 6
+        offset_magic_array += ((c >> 16) & 0xff) % 8
+        offset_magic_array += ((c >> 24) & 0xff) % 8
+        offset_magic_array += ((d >> 0) & 0xff) % 8
+        offset_magic_array += ((d >> 8) & 0xff) % 8
+        offset_magic_array += ((d >> 16) & 0xff) % 8
+        offset_magic_array += ((d >> 24) & 0xff) % 8
+        offset_magic_array += ((e >> 0) & 0xff) % 8
+        offset_magic_array += ((e >> 8) & 0xff) % 8
+        offset_magic_array += ((e >> 16) & 0xff) % 8
+        offset_magic_array += ((e >> 24) & 0xff) % 8
+
+        hash_str = (password.encode('utf-8') +
+                theMagicArray_s[offset_magic_array:offset_magic_array + length_magic_array] +
+                salt.encode('utf-8'))
+
+        hash_buf = hashlib.sha1(hash_str).hexdigest()
+        hash_val = salt + "$" + hash_buf.upper()[:20] + "0" * 20
+        return hash_val, salt
+
+    elif mode == '19500':
+        if not salt:
+            salt = random_numeric_string(12)
+        site_key = random_numeric_string(12)
+        # Construct the base string with separators
+        base_string = f"{site_key}--{salt}--{password}--{site_key}"
+        # Apply SHA-1 iteratively for 10 rounds (including the initial one)
+        digest = hashlib.sha1(base_string.encode('utf-8')).hexdigest()
+        for _ in range(9):
+            digest = hashlib.sha1(f"{digest}--{salt}--{password}--{site_key}".encode('utf-8')).hexdigest()
+        # Format the final hash string
+        return f"{digest}", f"{salt}:{site_key}"
+
+    else:
+        bt.logging.error("Not recognized hash mode")
+        return
 
 
 def gen_hash_password(available_chars=compute.pow_default_chars, length=min_diff):
@@ -196,13 +291,13 @@ def gen_hash_password(available_chars=compute.pow_default_chars, length=min_diff
     return "".join(random.choice(available_chars) for _ in range(length))
 
 
-def gen_challenge_details(available_chars=compute.pow_default_chars, length=min_diff):
+def gen_challenge_details(available_chars=compute.pow_default_chars, length=min_diff, mode: str = compute.pow_default_mode):
     """Generate the hashing details for a challenge."""
 
     try:
         password = gen_hash_password(available_chars=available_chars, length=length)
         _mask = "".join(["?1" for _ in range(length)])
-        _hash, _salt = gen_hash(password)
+        _hash, _salt = gen_hash(password=password, mode=mode)
         return password, _hash, _salt, _mask
     except Exception as e:
         print(f"Error during PoW generation (gen_challenge_details): {e}")
@@ -210,7 +305,6 @@ def gen_challenge_details(available_chars=compute.pow_default_chars, length=min_
 
 
 def gen_challenge(
-        mode=compute.pow_default_mode,
         length=min_diff,
         run_id: str = "",
         device_list: List[str] = [],
@@ -218,13 +312,14 @@ def gen_challenge(
     """Generate a challenge from a given hashcat mode, difficulty, and identifier."""
 
     challenge = Challenge()
+    challenge.mode = random.choice(pow_mode_list)
     available_chars = compute.pow_default_chars
     available_chars = list(available_chars)
     random.shuffle(available_chars)
     available_chars = "".join(available_chars)
     password, challenge._hash, challenge.salt, challenge.mask = gen_challenge_details(
-        available_chars=available_chars[:10], length=length)
-    challenge.mode, challenge.chars, challenge.difficulty, challenge.run_id = mode, available_chars[:10], length, run_id
+        available_chars=available_chars[:10], length=length, mode=challenge.mode)
+    challenge.chars, challenge.difficulty, challenge.run_id = available_chars[:10], length, run_id
     return challenge
 
 
@@ -260,7 +355,7 @@ def run_hashcat(
         run_id = challenge.run_id
         difficulty = challenge.difficulty
 
-        print(f"Running hash:{_hash} with id:{run_id} on #{device_id} GPU ")
+        print(f"Running hash:{_hash} with id:{run_id} with mode:{mode} on #{device_id} GPU ")
         if device_id in challenge_allocated:
             challenge_allocated[device_id] += 1
         else:
