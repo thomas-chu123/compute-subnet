@@ -3,6 +3,7 @@
 # Copyright © 2023 Crazydevlegend
 # Copyright © 2023 GitPhantomman
 # Copyright © 2024 Andrew O'Flaherty
+# Copyright © 2024 Thomas Chu
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 # documentation files (the “Software”), to deal in the Software without restriction, including without limitation
@@ -49,7 +50,7 @@ max_diff = compute.pow_max_difficulty
 
 pow_quantity = 3
 
-pow_mode_list = ["610","1410","10810","1710"]
+pow_mode_list = ["610", "8900", "1410", "10810", "1710", "7801", "19500"]
 
 class Challenge:
     """Store challenge object properties."""
@@ -176,9 +177,15 @@ def random_numeric_string(length):
     numbers = '0123456789'
     return ''.join([numbers[random.randint(0, 9)] for _ in range(length)])
 
+
 def gen_hash(password, salt=None, mode: str = compute.pow_default_mode):
-    """Generate the hash and salt for a challenge."""
-    # check the mode selection for the hash
+    """
+    Generate the hash and salt for a challenge.
+    :param password: The password to hash.
+    :param salt: The salt to use for the hash.
+    :param mode: The hashcat mode to use for the hash.
+    :return: The hash and salt for the challenge.
+    """
     if mode == '8900': # For Scrypt
         salt = secrets.token_bytes(24) if salt is None else base64.b64decode(salt.encode("utf-8"))
         password_bytes = password.encode('ascii')
@@ -201,7 +208,7 @@ def gen_hash(password, salt=None, mode: str = compute.pow_default_mode):
         elif mode == '1710':
             hash_result = hashlib.sha512(data).hexdigest()
         return f"{padding}{hash_result}", salt
-    elif mode == '7801':
+    elif mode == '7801': # For SAP CODVN F/G (PASSCODE)
         if not salt:
             salt = random_numeric_string(8)
 
@@ -256,7 +263,7 @@ def gen_hash(password, salt=None, mode: str = compute.pow_default_mode):
         hash_val = salt + "$" + hash_buf.upper()[:20] + "0" * 20
         return hash_val, salt
 
-    elif mode == '19500':
+    elif mode == '19500': # For Ruby on Rails Restful-Authentication
         if not salt:
             salt = random_numeric_string(12)
         site_key = random_numeric_string(12)
@@ -308,11 +315,15 @@ def gen_challenge(
         length=min_diff,
         run_id: str = "",
         device_list: List[str] = [],
+        random_challenge: str = "N",
 ) -> Challenge:
     """Generate a challenge from a given hashcat mode, difficulty, and identifier."""
 
     challenge = Challenge()
-    challenge.mode = random.choice(pow_mode_list)
+    if random_challenge=="Y" or random_challenge=="y":
+        challenge.mode = random.choice(pow_mode_list)
+    else:
+        challenge.mode = compute.pow_default_mode
     available_chars = compute.pow_default_chars
     available_chars = list(available_chars)
     random.shuffle(available_chars)
@@ -361,6 +372,7 @@ def run_hashcat(
         else:
             challenge_allocated[device_id] = 1
 
+        # hashcat thread function
         threading_list.append(
             threading.Thread(target=hashcat_thread, args=(difficulty, hashcat_path, _hash, salt, run_id, mode,
                                                           chars, mask, hashcat_workload_profile,
@@ -385,9 +397,9 @@ def format_difficulties(text: str = "") -> List[int]:
     text = text.replace("  ", ",")
     text = text.replace(",,", ",")
 
+    # Use ":" to easy generate multiple challenges of the same difficulty
     if ":" in text:
         return [int(text.split(":")[0]) for _ in range(int(text.split(":")[1]))]
-
 
     if text.lower() == "all" or not text:
         return list(range(min_diff, max_diff + 1, 1))
@@ -395,6 +407,7 @@ def format_difficulties(text: str = "") -> List[int]:
         return [int(x) for x in text.split(",")] if "," in text else [int(text)]
 
 
+# get the list of cuda devices
 def get_cuda_device_list() -> List:
     device_list = []
     command = ["nvidia-smi", "--query-gpu=gpu_name,gpu_bus_id,vbios_version,memory.total", "--format=csv"]
@@ -403,16 +416,24 @@ def get_cuda_device_list() -> List:
     print(device_list)
     return device_list
 
-
-def hashcat_thread(difficulty, hashcat_path, _hash, salt, run_id, mode, chars, mask,
-                   hashcat_workload_profile, hashcat_extended_options, device_id):
+# Hashcat thread to handle send multiple hashcat commands to the GPU devices
+def hashcat_thread(difficulty: str, hashcat_path: str, _hash: str, salt: str, run_id: str, mode: str, chars: str, mask: str,
+                   hashcat_workload_profile: str, hashcat_extended_options: str, device_id: int):
     start_time = time.time()
     unknown_error_message = f"Difficulty {difficulty} challenge ID {run_id}: ❌ run_hashcat execution failed"
+
+    # Check the hash algorithm and construct the hash and salt string accordingly
+    if mode == "8900":
+        _hash_str = ":".join(_hash.split(":")[0:4]) + ":" + salt + ":" + _hash.split(":")[4]
+    elif mode == "7801":
+        _hash_str = f"{_hash}"
+    else:
+        _hash_str = f"{_hash}:{salt}"
 
     try:
         command = [
             hashcat_path,
-            f"{_hash}:{salt}",
+            _hash_str,
             "-a",
             "3",
             "-d",
@@ -448,6 +469,7 @@ def hashcat_thread(difficulty, hashcat_path, _hash, salt, run_id, mode, chars, m
                     f"Difficulty {difficulty} challenge ID {run_id}: ✅ Result {result} found in {execution_time:0.2f} seconds !"
                 )
 
+                # check the challenges_solved dictionary with each GPU device
                 if device_id in challenges_solved:
                     if difficulty in challenges_solved[device_id]:
                         challenges_solved[device_id][difficulty] = challenges_solved[device_id][difficulty]  + 1
@@ -459,22 +481,21 @@ def hashcat_thread(difficulty, hashcat_path, _hash, salt, run_id, mode, chars, m
                 else:
                     challenges_solved[device_id] = {difficulty: 1}
                     challenge_solve_durations[device_id] = {difficulty: execution_time}
-                # continue
+
         else:
             error_message = f"Difficulty {difficulty} challenge ID {run_id}: ❌ Hashcat execution failed with code {process.returncode}: {process.stderr}"
             bt.logging.warning(error_message)
-            # continue
+
 
     except subprocess.TimeoutExpired:
         # execution_time = time.time() - start_time
         error_message = f"Difficulty {difficulty} challenge ID {run_id}: ❌ Hashcat execution timed out"
         bt.logging.warning(error_message)
-        # continue
+
 
     except Exception as e:
         # execution_time = time.time() - start_time
         bt.logging.warning(f"{unknown_error_message}: {e}")
-        # continue
 
     # bt.logging.warning(f"{unknown_error_message}: no exceptions")
 
@@ -489,24 +510,25 @@ def main():
     hashcat_workload_profile: str = "3"
     hashcat_extended_options: str = "-O"
     cuda_list = get_cuda_device_list()
+    # For the random challenge
+    random_challenge: str = "N"
 
     os.system('clear')
 
     # Check CUDA devices and docker availability
     check_cuda_availability()
 
-    if compute.__testing_mode__ == False:
-        build_benchmark_container('compute-subnet-benchmark', 'sn27-benchmark-container')
-        has_docker, msg = check_docker_availability()
+    build_benchmark_container('compute-subnet-benchmark', 'sn27-benchmark-container')
+    has_docker, msg = check_docker_availability()
 
-        if not has_docker:
-            bt.logging.error(msg)
-            print(
-                Fore.RED + "DOCKER IS NOT INSTALLED OR IS NOT ACCESSIBLE. AS A RESULT, YOUR SCORE WILL BE REDUCED BY 50%!")
-        else:
-            print(Fore.GREEN + f"Docker is installed. Version: {msg}")
-            print(
-                Fore.YELLOW + "Please confirm port 4444 is open by running 'sudo ufw allow 4444'. Without this, validators cannot use your machine's resources.")
+    if not has_docker:
+        bt.logging.error(msg)
+        print(
+            Fore.RED + "DOCKER IS NOT INSTALLED OR IS NOT ACCESSIBLE. AS A RESULT, YOUR SCORE WILL BE REDUCED BY 50%!")
+    else:
+        print(Fore.GREEN + f"Docker is installed. Version: {msg}")
+        print(
+            Fore.YELLOW + "Please confirm port 4444 is open by running 'sudo ufw allow 4444'. Without this, validators cannot use your machine's resources.")
 
     print(Style.RESET_ALL)
 
@@ -514,7 +536,7 @@ def main():
     print("Example 1: 6")
     print("Example 2: 7 8 9")
     print("Example 3: 10, 11, 12")
-    print("Example 4: 6:7")
+    print("Example 4: 6:7") # For generate 7 challenges of difficulty 6
     print("Example 5: all" + "\n")
 
     while True:
@@ -552,6 +574,17 @@ def main():
     elif not hashcat_extended_options:
         hashcat_extended_options = "-O"
 
+    # Input selection for random hashcat challenge algorithm
+    try:
+        random_challenge = input("Would you like to use random hashcat challenge algorithm? (Y/N, default: N): ")
+        if random_challenge=="Y" or random_challenge=="y":
+            random_challenge = "Y"
+        else:
+            random_challenge = "N"
+    except:
+        random_challenge = "N"
+
+
     if benchmark_quantity < 1:
         benchmark_quantity = 1
 
@@ -577,7 +610,7 @@ def main():
                 challenge_totals[current_diff] = 1
 
             challenge = gen_challenge(length=current_diff,
-                                    run_id=f"{current_diff}-{challenge_totals[current_diff]}")
+                                    run_id=f"{current_diff}-{challenge_totals[current_diff]}", random_challenge=random_challenge)
             challenges.append(challenge)
 
     print(Style.RESET_ALL)
@@ -595,6 +628,7 @@ def main():
 
     print("\n" + "Completed benchmarking with the following results:")
     # Convert the difficulty list to a set to prevent printing duplicate results. Sort the set to print the results in ascending difficulty order
+    # Loop the device_id to print the results for each GPU device
     for dev_id in range(1, len(cuda_list) + 1):
         if dev_id in challenge_allocated:
             print(f"GPU #{str(dev_id)} results:")
