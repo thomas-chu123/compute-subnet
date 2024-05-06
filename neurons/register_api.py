@@ -1,7 +1,7 @@
 # The MIT License (MIT)
 # Copyright © 2023 Crazydevlegend
 # Copyright © 2023 Rapiiidooo
-# Cp[yright @ 2024 Skynet
+# Cp[yright @ 2024 Thomas Chu
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 # documentation files (the “Software”), to deal in the Software without restriction, including without limitation
@@ -32,21 +32,21 @@ from starlette.responses import JSONResponse
 from sympy.codegen.fnodes import allocated
 
 import RSAEncryption as rsa
-# from compute.protocol import Allocate
-# from compute.utils.db import ComputeDb
-# from compute.wandb.wandb import ComputeWandb
-# from neurons.Validator.database.allocate import (
-#     select_allocate_miners_hotkey,
-#     update_allocation_db,
-#     get_miner_details,
-# )
-# from compute.utils.version import get_local_version
-# from compute.utils.db import ComputeDb
-# from register import (
-#     allocate_container,
-#     allocate_container_hotkey,
-#     update_allocation_wandb,
-# )
+from compute.protocol import Allocate
+from compute.utils.db import ComputeDb
+from compute.wandb.wandb import ComputeWandb
+from neurons.Validator.database.allocate import (
+     select_allocate_miners_hotkey,
+     update_allocation_db,
+     get_miner_details,
+)
+from compute.utils.version import get_local_version
+from compute.utils.db import ComputeDb
+from register import (
+     allocate_container,
+     allocate_container_hotkey,
+     update_allocation_wandb,
+)
 
 import uvicorn
 from fastapi import FastAPI, Depends, HTTPException, status, Request, Response
