@@ -50,6 +50,7 @@ from compute.utils.version import (
 from neurons.Miner.allocate import check_allocation, register_allocation, deregister_allocation, check_if_allocated
 from neurons.Miner.container import build_check_container
 from compute.wandb.wandb import ComputeWandb
+from compute.mongodb.mongodb import ComputeMongoDB
 from neurons.Miner.allocate import check_allocation, register_allocation
 from neurons.Miner.pow import check_cuda_availability, run_miner_pow
 from neurons.Miner.specs import RequestSpecsProcessor
@@ -115,8 +116,10 @@ class Miner:
         self._wallet = bt.wallet(config=self.config)
         bt.logging.info(f"Wallet: {self.wallet}")
 
-        self.wandb = ComputeWandb(self.config, self.wallet, os.path.basename(__file__))
-        self.wandb.update_specs()
+        # self.wandb = ComputeWandb(self.config, self.wallet, os.path.basename(__file__))
+        # self.wandb.update_specs()
+        self.mongodb = ComputeMongoDB(self.config, self.wallet, os.path.basename(__file__))
+        self.mongodb.update_specs()
 
         # Subtensor manages the blockchain connection, facilitating interaction with the Bittensor blockchain.
         self._subtensor = ComputeSubnetSubtensor(config=self.config)
@@ -470,7 +473,8 @@ class Miner:
                 
                 if self.current_block % block_next_updated_specs == 0 or block_next_updated_specs < self.current_block:
                     block_next_updated_specs = self.current_block + 150  # 150 ~ every 30 minutes
-                    self.wandb.update_specs()               
+                    # self.wandb.update_specs()
+                    self.mongodb.update_specs()
 
                 if self.current_block % block_next_sync_status == 0 or block_next_sync_status < self.current_block:
                     block_next_sync_status = self.current_block + 25  # 25 ~ every 5 minutes
@@ -485,7 +489,8 @@ class Miner:
                         "Incentive": float(self.metagraph.I[self.miner_subnet_uid].numpy()),
                         "Emission": float(self.metagraph.E[self.miner_subnet_uid].numpy()),
                     }
-                    self.wandb.log_chain_data(chain_data)
+                    # self.wandb.log_chain_data(chain_data)
+                    self.mongodb.log_chain_data(chain_data)
 
                 # Periodically clear some vars
                 if len(self.blocks_done) > 1000:

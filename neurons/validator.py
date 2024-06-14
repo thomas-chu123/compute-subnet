@@ -57,6 +57,7 @@ from compute.utils.parser import ComputeArgPaser
 from compute.utils.subtensor import is_registered, get_current_block, calculate_next_block_time
 from compute.utils.version import try_update, get_local_version, version2number, get_remote_version
 from compute.wandb.wandb import ComputeWandb
+from compute.mongodb.mongodb import ComputeMongoDB
 from neurons.Validator.calculate_pow_score import calc_score
 from neurons.Validator.database.allocate import update_miner_details, select_has_docker_miners_hotkey, get_miner_details
 from neurons.Validator.database.challenge import select_challenge_stats, update_challenge_details
@@ -158,7 +159,8 @@ class Validator:
         self._wallet = bt.wallet(config=self.config)
         bt.logging.info(f"Wallet: {self.wallet}")
 
-        self.wandb = ComputeWandb(self.config, self.wallet, os.path.basename(__file__))
+        # self.wandb = ComputeWandb(self.config, self.wallet, os.path.basename(__file__))
+        self.mongodb = ComputeMongoDB(self.config, self.wallet, os.path.basename(__file__))
 
         # The subtensor is our connection to the Bittensor blockchain.
         self._subtensor = ComputeSubnetSubtensor(config=self.config)
@@ -269,7 +271,8 @@ class Validator:
         self.stats = select_challenge_stats(self.db)
 
         # Fetch allocated hotkeys
-        allocated_hotkeys = self.wandb.get_allocated_hotkeys(self.get_valid_validator_hotkeys(), True)
+        # allocated_hotkeys = self.wandb.get_allocated_hotkeys(self.get_valid_validator_hotkeys(), True)
+        allocated_hotkeys = self.mongodb.get_allocated_hotkeys(self.get_valid_validator_hotkeys(), True)
 
         # Fetch docker requirement
         has_docker_hotkeys = select_has_docker_miners_hotkey(self.db)
@@ -296,7 +299,8 @@ class Validator:
             self.scores[uid] = score
 
         # Update stats in wandb
-        self.wandb.update_stats(self.stats)
+        # self.wandb.update_stats(self.stats)
+        self.mongodb.update_stats(self.stats)
 
         bt.logging.info(f"🔢 Synced scores : {self.scores.tolist()}")
 
@@ -590,9 +594,10 @@ class Validator:
     
     def get_specs_wandb(self):
 
-        bt.logging.info(f"💻 Hardware list of uids queried (Wandb): {list(self._queryable_uids.keys())}")
+        bt.logging.info(f"💻 Hardware list of uids queried (MongoDB): {list(self._queryable_uids.keys())}")
      
-        specs_dict = self.wandb.get_miner_specs(self._queryable_uids) 
+        # specs_dict = self.wandb.get_miner_specs(self._queryable_uids)
+        specs_dict = self.mongodb.get_miner_specs(self.queryable_uids)
         # Update the local db with the data from wandb
         update_miner_details(self.db, list(specs_dict.keys()), list(specs_dict.values()))
 
@@ -738,7 +743,8 @@ class Validator:
                             "vTrust": float(self.metagraph.validator_trust[self.validator_subnet_uid].numpy()),
                             "Emission": float(self.metagraph.E[self.validator_subnet_uid].numpy()),
                         }
-                        self.wandb.log_chain_data(chain_data)
+                        # self.wandb.log_chain_data(chain_data)
+                        self.mongodb.log_chain_data(chain_data)
 
                     # Periodically update the weights on the Bittensor blockchain, ~ every 20 minutes
                     if self.current_block - self.last_updated_block > weights_rate_limit:
