@@ -116,8 +116,6 @@ class Miner:
         self._wallet = bt.wallet(config=self.config)
         bt.logging.info(f"Wallet: {self.wallet}")
 
-        # self.wandb = ComputeWandb(self.config, self.wallet, os.path.basename(__file__))
-        # self.wandb.update_specs()
         self.mongodb = ComputeMongoDB(self.config, self.wallet, os.path.basename(__file__))
         self.mongodb.update_specs()
 
@@ -323,10 +321,10 @@ class Miner:
     def update_allocation(self, synapse: Allocate):
         if not synapse.checking and isinstance(synapse.output, dict) and synapse.output.get("status") is True:
             if synapse.timeline > 0:
-                self.wandb.update_allocated(synapse.dendrite.hotkey)
+                self.mongodb.update_allocated(synapse.dendrite.hotkey)
                 bt.logging.success(f"Allocation made by {synapse.dendrite.hotkey}.")
             else:
-                self.wandb.update_allocated(None)
+                self.mongodb.update_allocated(None)
                 bt.logging.success(f"De-allocation made by {synapse.dendrite.hotkey}.")
 
     # This is the Allocate function, which decides the miner's response to a valid, high-priority request.
@@ -473,7 +471,6 @@ class Miner:
                 
                 if self.current_block % block_next_updated_specs == 0 or block_next_updated_specs < self.current_block:
                     block_next_updated_specs = self.current_block + 150  # 150 ~ every 30 minutes
-                    # self.wandb.update_specs()
                     self.mongodb.update_specs()
 
                 if self.current_block % block_next_sync_status == 0 or block_next_sync_status < self.current_block:
@@ -489,7 +486,6 @@ class Miner:
                         "Incentive": float(self.metagraph.I[self.miner_subnet_uid].numpy()),
                         "Emission": float(self.metagraph.E[self.miner_subnet_uid].numpy()),
                     }
-                    # self.wandb.log_chain_data(chain_data)
                     self.mongodb.log_chain_data(chain_data)
 
                 # Periodically clear some vars
