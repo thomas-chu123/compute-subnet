@@ -21,7 +21,8 @@ import os
 import time
 import traceback
 import typing
-
+import multiprocessing
+import base64
 import bittensor as bt
 
 from compute import (
@@ -48,7 +49,7 @@ from compute.utils.version import (
     get_remote_version,
 )
 from neurons.Miner.allocate import check_allocation, register_allocation, deregister_allocation, check_if_allocated
-from neurons.Miner.container import build_check_container
+from neurons.Miner.container import build_check_container, build_sample_container, check_container, kill_container
 from compute.wandb.wandb import ComputeWandb
 from neurons.Miner.allocate import check_allocation, register_allocation
 from neurons.Miner.pow import check_cuda_availability, run_miner_pow
@@ -115,9 +116,6 @@ class Miner:
         self._wallet = bt.wallet(config=self.config)
         bt.logging.info(f"Wallet: {self.wallet}")
 
-        self.wandb = ComputeWandb(self.config, self.wallet, os.path.basename(__file__))
-        self.wandb.update_specs()
-
         # Subtensor manages the blockchain connection, facilitating interaction with the Bittensor blockchain.
         self._subtensor = ComputeSubnetSubtensor(config=self.config)
         bt.logging.info(f"Subtensor: {self.subtensor}")
@@ -128,6 +126,10 @@ class Miner:
 
         build_check_container('my-compute-subnet','sn27-check-container')
         has_docker, msg = check_docker_availability()
+
+        # Build sample container image to speed up the allocation process
+        sample_docker = multiprocessing.Process(target=build_sample_container)
+        sample_docker.start()
 
         if not has_docker:
             bt.logging.error(msg)
@@ -148,6 +150,28 @@ class Miner:
 
         self.sync_status()
         self.init_axon()
+
+        # Step 4: Initialize wandb
+        self.wandb = ComputeWandb(self.config, self.wallet, os.path.basename(__file__))
+        self.wandb.update_specs()
+
+        # check allocation status
+        file_path = 'allocation_key'
+        # Open the file in read mode ('r') and read the data
+        with open(file_path, 'r') as file:
+            allocation_key_encoded = file.read()
+
+        if not self.wandb.sync_allocated(self.wallet.hotkey.ss58_address) and allocation_key_encoded:
+            # Decode the base64-encoded public key from the file
+            public_key = base64.b64decode(allocation_key_encoded).decode('utf-8')
+            deregister_allocation(public_key)
+            self.wandb.update_allocated(None)
+            bt.logging.info("Allocation is not exist in wandb. Resetting the allocation status.")
+
+        if check_container() and not allocation_key_encoded:
+            kill_container()
+            self.wandb.update_allocated(None)
+            bt.logging.info("Container is already running without allocated. Killing the container.")
 
         self.request_specs_processor = RequestSpecsProcessor()
 
@@ -331,6 +355,8 @@ class Miner:
         timeline = synapse.timeline
         device_requirement = synapse.device_requirement
         checking = synapse.checking
+        docker_requirement = synapse.docker_requirement
+        docker_requirement['ssh_port'] = int(self.config.ssh.port)
 
         if checking is True:
             if timeline > 0:
@@ -343,7 +369,7 @@ class Miner:
         else:
             public_key = synapse.public_key
             if timeline > 0:
-                result = register_allocation(timeline, device_requirement, public_key)
+                result = register_allocation(timeline, device_requirement, public_key, docker_requirement)
                 synapse.output = result
             else:
                 result = deregister_allocation(public_key)
@@ -479,11 +505,11 @@ class Miner:
                     # Log chain data to wandb
                     chain_data = {
                         "Block": self.current_block,
-                        "Stake": float(self.metagraph.S[self.miner_subnet_uid].numpy()),
-                        "Trust": float(self.metagraph.T[self.miner_subnet_uid].numpy()),
-                        "Consensus": float(self.metagraph.C[self.miner_subnet_uid].numpy()),
-                        "Incentive": float(self.metagraph.I[self.miner_subnet_uid].numpy()),
-                        "Emission": float(self.metagraph.E[self.miner_subnet_uid].numpy()),
+                        "Stake": float(self.metagraph.S[self.miner_subnet_uid]),
+                        "Trust": float(self.metagraph.T[self.miner_subnet_uid]),
+                        "Consensus": float(self.metagraph.C[self.miner_subnet_uid]),
+                        "Incentive": float(self.metagraph.I[self.miner_subnet_uid]),
+                        "Emission": float(self.metagraph.E[self.miner_subnet_uid]),
                     }
                     self.wandb.log_chain_data(chain_data)
 
