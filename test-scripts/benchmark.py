@@ -51,6 +51,13 @@ max_diff = compute.pow_max_difficulty
 pow_quantity = 3
 
 pow_mode_list = ["610", "8900", "1410", "10810", "1710", "7801", "19500"]
+pow_mode_blake2b = "610"
+pow_mode_scrypt = "8900"
+pow_mode_sha256 = "1410"
+pow_mode_sha384 = "10810"
+pow_mode_sha512 = "1710"
+pow_mode_sap = "7801"
+pow_mode_ruby = "19500"
 
 class Challenge:
     """Store challenge object properties."""
@@ -186,29 +193,29 @@ def gen_hash(password, salt=None, mode: str = compute.pow_default_mode):
     :param mode: The hashcat mode to use for the hash.
     :return: The hash and salt for the challenge.
     """
-    if mode == '8900': # For Scrypt
+    if mode == pow_mode_scrypt: # For Scrypt
         salt = secrets.token_bytes(24) if salt is None else base64.b64decode(salt.encode("utf-8"))
         password_bytes = password.encode('ascii')
         hashed_password = hashlib.scrypt(password_bytes, salt=salt, n=1024, r=1, p=1, dklen=32)
         hash_result = str(base64.b64encode(hashed_password).decode('utf-8'))
         salt = str(base64.b64encode(salt).decode('utf-8'))
         return f"SCRYPT:1024:1:1:{hash_result}", salt
-    elif mode== '610' or mode== '1410' or mode== '10810' or mode== '1710':  # For Blake2b-512, SHA-256, SHA-384, SHA-512
+    elif mode== pow_mode_blake2b or mode== pow_mode_sha256 or mode== pow_mode_sha384 or mode== pow_mode_sha512:  # For Blake2b-512, SHA-256, SHA-384, SHA-512
         salt = secrets.token_hex(8) if salt is None else salt
         salted_password = password + salt
         data = salted_password.encode("utf-8")
         padding = ""
-        if mode == '610':
+        if mode == pow_mode_blake2b:
             hash_result = hashlib.blake2b(data).hexdigest()
             padding = "$BLAKE2$"
-        elif mode == '1410':
+        elif mode == pow_mode_sha256:
             hash_result = hashlib.sha256(data).hexdigest()
-        elif mode == '10810':
+        elif mode == pow_mode_sha384:
             hash_result = hashlib.sha384(data).hexdigest()
-        elif mode == '1710':
+        elif mode == pow_mode_sha512:
             hash_result = hashlib.sha512(data).hexdigest()
         return f"{padding}{hash_result}", salt
-    elif mode == '7801': # For SAP CODVN F/G (PASSCODE)
+    elif mode == pow_mode_sap: # For SAP CODVN F/G (PASSCODE)
         if not salt:
             salt = random_numeric_string(8)
 
@@ -263,7 +270,7 @@ def gen_hash(password, salt=None, mode: str = compute.pow_default_mode):
         hash_val = salt + "$" + hash_buf.upper()[:20] + "0" * 20
         return hash_val, salt
 
-    elif mode == '19500': # For Ruby on Rails Restful-Authentication
+    elif mode == pow_mode_ruby: # For Ruby on Rails Restful-Authentication
         if not salt:
             salt = random_numeric_string(12)
         site_key = random_numeric_string(12)
@@ -350,6 +357,7 @@ def run_hashcat(
         hashcat_workload_profile: str = "3",
         hashcat_extended_options: str = "",
         device_list: List[str] = [],
+        run_sequence: bool = False,
 
 ) -> bool:
     """Solve a list of challenges and output the results."""
@@ -366,28 +374,32 @@ def run_hashcat(
         run_id = challenge.run_id
         difficulty = challenge.difficulty
 
-        print(f"Running hash:{_hash} with id:{run_id} with mode:{mode} on #{device_id} GPU ")
+        bt.logging.info(f"Running hash:{_hash} with id:{run_id} with mode:{mode} on #{device_id} GPU ")
         if device_id in challenge_allocated:
             challenge_allocated[device_id] += 1
         else:
             challenge_allocated[device_id] = 1
 
-        # hashcat thread function
-        threading_list.append(
-            threading.Thread(target=hashcat_thread, args=(difficulty, hashcat_path, _hash, salt, run_id, mode,
-                                                          chars, mask, hashcat_workload_profile,
-                                                          hashcat_extended_options, device_id)))
-
-        if device_id < max_device_id:
-            device_id += 1
+        if run_sequence:
+            # hashcat thread function
+            threading_list.append(
+                threading.Thread(target=hashcat_thread, args=(difficulty, hashcat_path, _hash, salt, run_id, mode,
+                                                              chars, mask, hashcat_workload_profile,
+                                                              hashcat_extended_options, device_id)))
+            if device_id < max_device_id:
+                device_id += 1
+            else:
+                device_id = 1
         else:
-            device_id = 1
+            hashcat_thread(difficulty, hashcat_path, _hash, salt, run_id, mode, chars, mask, hashcat_workload_profile,
+                           hashcat_extended_options, device_id)
 
-    for task in threading_list:
-        task.start()
+    if run_sequence:
+        for task in threading_list:
+            task.start()
 
-    for task in threading_list:
-        task.join()
+        for task in threading_list:
+            task.join()
 
 
 def format_difficulties(text: str = "") -> List[int]:
@@ -413,19 +425,19 @@ def get_cuda_device_list() -> List:
     command = ["nvidia-smi", "--query-gpu=gpu_name,gpu_bus_id,vbios_version,memory.total", "--format=csv"]
     result = subprocess.run(command, capture_output=True, text=True).stdout
     device_list = [item for item in result.split("\n")[1:-1]]
-    print(device_list)
+    print(f"Found Devices:",device_list)
     return device_list
 
 # Hashcat thread to handle send multiple hashcat commands to the GPU devices
-def hashcat_thread(difficulty: str, hashcat_path: str, _hash: str, salt: str, run_id: str, mode: str, chars: str, mask: str,
+def hashcat_thread(difficulty: int, hashcat_path: str, _hash: str, salt: str, run_id: str, mode: str, chars: str, mask: str,
                    hashcat_workload_profile: str, hashcat_extended_options: str, device_id: int):
     start_time = time.time()
     unknown_error_message = f"Difficulty {difficulty} challenge ID {run_id}: ❌ run_hashcat execution failed"
 
     # Check the hash algorithm and construct the hash and salt string accordingly
-    if mode == "8900":
+    if mode == pow_mode_scrypt:
         _hash_str = ":".join(_hash.split(":")[0:4]) + ":" + salt + ":" + _hash.split(":")[4]
-    elif mode == "7801":
+    elif mode == pow_mode_sap:
         _hash_str = f"{_hash}"
     else:
         _hash_str = f"{_hash}:{salt}"
@@ -453,6 +465,7 @@ def hashcat_thread(difficulty: str, hashcat_path: str, _hash: str, salt: str, ru
             "120",
         ]
 
+        execute_command = " ".join(command)
         process = subprocess.run(
             command,
             capture_output=True,
@@ -464,7 +477,13 @@ def hashcat_thread(difficulty: str, hashcat_path: str, _hash: str, salt: str, ru
 
         if process.returncode == 0:
             if process.stdout:
+                if mode == pow_mode_scrypt:
+                    _hash = ":".join(_hash.split(":")[0:4]) + ":" + salt + _hash.split(":")[4]
                 result = hashcat_verify(_hash, process.stdout)
+                # Convert hashcat output the $HEX[] format
+                if "$HEX" in result:
+                    result = decode_hex(result)
+                    bt.logging.info(f"{run_id}: ✅ Convert $HEX format to {result}")
                 bt.logging.success(
                     f"Difficulty {difficulty} challenge ID {run_id}: ✅ Result {result} found in {execution_time:0.2f} seconds !"
                 )
@@ -486,12 +505,10 @@ def hashcat_thread(difficulty: str, hashcat_path: str, _hash: str, salt: str, ru
             error_message = f"Difficulty {difficulty} challenge ID {run_id}: ❌ Hashcat execution failed with code {process.returncode}: {process.stderr}"
             bt.logging.warning(error_message)
 
-
     except subprocess.TimeoutExpired:
         # execution_time = time.time() - start_time
         error_message = f"Difficulty {difficulty} challenge ID {run_id}: ❌ Hashcat execution timed out"
         bt.logging.warning(error_message)
-
 
     except Exception as e:
         # execution_time = time.time() - start_time
@@ -499,6 +516,25 @@ def hashcat_thread(difficulty: str, hashcat_path: str, _hash: str, salt: str, ru
 
     # bt.logging.warning(f"{unknown_error_message}: no exceptions")
 
+def decode_hex(password):
+    decoded = []
+    pwd = password
+    if "$HEX" in password:
+        multihex = list(filter(None, password.split("$")))
+        for x in multihex:
+            if "HEX[" in x:
+                endhex = x.find("]")
+                try:
+                    decoded.append((bytes.fromhex(x[4:endhex]).decode("utf-8")))
+                except:
+                    decoded.append((bytes.fromhex(x[4:endhex]).decode("cp1252")))
+            else:
+                decoded.append(x)
+        if len(decoded) != 0:
+            pwd = ''.join(decoded)
+        return (pwd)
+    else:
+        return (pwd)
 
 def main():
     """Handle the core benchmarking logic."""
@@ -577,13 +613,21 @@ def main():
     # Input selection for random hashcat challenge algorithm
     try:
         random_challenge = input("Would you like to use random hashcat challenge algorithm? (Y/N, default: N): ")
-        if random_challenge=="Y" or random_challenge=="y":
+        if random_challenge == "Y" or random_challenge == "y":
             random_challenge = "Y"
         else:
             random_challenge = "N"
     except:
         random_challenge = "N"
 
+    try:
+        run_sequence = input("Would you like to run hashcat challenge in parallel? (Y/N, default: N): ")
+        if run_sequence == "Y" or run_sequence == "y":
+            run_sequence = True
+        else:
+            run_sequence = False
+    except:
+        run_sequence = False
 
     if benchmark_quantity < 1:
         benchmark_quantity = 1
@@ -620,8 +664,8 @@ def main():
         f"Hashcat profile set to {hashcat_workload_profile} with the following extended options: {'None' if not hashcat_extended_options else hashcat_extended_options}")
     print(
         f"Running {benchmark_quantity} benchmark(s) for the following challenge difficulties: {challenge_difficulty_list}" + "\n")
-    run_hashcat(challenges, hashcat_workload_profile=hashcat_workload_profile,
-                hashcat_extended_options=hashcat_extended_options, device_list=cuda_list)
+    run_hashcat(challenges=challenges, hashcat_workload_profile=hashcat_workload_profile,
+                hashcat_extended_options=hashcat_extended_options, device_list=cuda_list, run_sequence=run_sequence)
     time.sleep(1)
     # print(challenges_solved)
     # print(challenge_solve_durations)
