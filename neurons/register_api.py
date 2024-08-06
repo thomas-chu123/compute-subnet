@@ -1348,6 +1348,60 @@ class RegisterAPI:
                     },
                 )
 
+        @self.app.post("/list/hotkey_metagraph",
+                       tags=["Metagraph"],
+                       response_model=SuccessResponse | ErrorResponse,
+                       responses={
+                           200: {
+                               "model": SuccessResponse,
+                               "description": "List metagraph data successfully.",
+                           },
+                           404: {
+                                "model": ErrorResponse,
+                                "description": "Error occurred while getting metagraph data",
+                           }
+                       }
+        )
+        async def list_hotkey_metagraph(hotkey: str) -> JSONResponse:
+            """
+            The list metagraph data API endpoint. <br>
+            """
+            try:
+                index = self.metagraph.hotkeys.index(hotkey)
+                axon = self.metagraph.axons[index]
+                if axon:
+                    ip_type = "IPv4" if axon.ip_type == 4 else "IPv6"
+                    return JSONResponse(
+                        status_code=status.HTTP_200_OK,
+                        content={
+                            "success": True,
+                            "message": "List run metagraph successfully.",
+                            "data": jsonable_encoder(
+                                {'hotkey': hotkey, 'ip_addr': axon.ip, 'port': axon.port,
+                                 'type': ip_type, 'version': axon.version}
+                            ),
+                        },
+                    )
+                else:
+                    return JSONResponse(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        content={
+                            "success": False,
+                            "message": "Error occurred while getting metagraph from hotkey",
+                            "err_detail": f"Hotkey {hotkey} not found in the metagraph",
+                        },
+                    )
+            except ValueError as e:
+                return JSONResponse(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    content={
+                        "success": False,
+                        "message": "Error occurred while getting metagraph from hotkey",
+                        "err_detail": f"Hotkey {hotkey} not found in the metagraph",
+                    },
+                )
+
+
         @self.app.post("/list/all_runs",
                        tags=["WandB"],
                        response_model=SuccessResponse | ErrorResponse,
