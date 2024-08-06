@@ -34,7 +34,7 @@ import socket
 from urllib3.exceptions import InsecureRequestWarning
 import urllib3
 urllib3.disable_warnings(InsecureRequestWarning)
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 # Import Compute Subnet Libraries
 import RSAEncryption as rsa
@@ -255,7 +255,13 @@ class RegisterAPI:
         else:
             self.app = FastAPI(debug=False, docs_url=None, redoc_url=None)
 
-        load_dotenv()
+        # Find the correct .env file based on the current environment
+        if os.getenv("ENV") is None:
+            env_file = find_dotenv()
+        else:
+            env_file = find_dotenv(f'.env.{os.getenv("ENV")}')
+        # Load the environment variables from the .env file
+        load_dotenv(dotenv_path=env_file, override=True, verbose=True)
         self._setup_routes()
         self.process = None
         self.websocket_connection = None
