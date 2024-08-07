@@ -127,6 +127,7 @@ class Validator:
         return set((uid, hotkey) for uid, hotkey in self.miners.items()) if self.miners else None
 
     def __init__(self):
+        bt.logging.set_debug(True)
         # Step 1: Parse the bittensor and compute subnet config
         self.config = self.init_config()
 

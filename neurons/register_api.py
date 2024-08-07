@@ -180,6 +180,7 @@ class RegisterAPI:
             wandb: Optional[ComputeWandb] = None,
     ):
 
+        bt.logging.set_debug(True)
         # Compose User Config Data with bittensor config
         # Get the config from the user config
         if config is None:

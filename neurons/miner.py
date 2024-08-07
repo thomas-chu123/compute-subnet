@@ -101,6 +101,7 @@ class Miner:
         return get_current_block(subtensor=self.subtensor)
 
     def __init__(self):
+        bt.logging.set_debug(True)
         # Step 1: Parse the bittensor and compute subnet config
         self.config = self.init_config()
 
