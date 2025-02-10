@@ -1,0 +1,4 @@
+docker
+fastapi
+psutil
+uvicorn
