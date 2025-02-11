@@ -31,7 +31,12 @@ from docker.types import DeviceRequest
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
 
-import libs.RSAEncryption as rsa
+# Add the path to the 'libs' folder
+sys.path.append(os.path.join(os.path.dirname(__file__), 'libs'))
+# Add the path to the 'libs' folder
+sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
+
+from cloud.utils import RSAEncryption as rsa
 
 DOCKER_HOST = "tcp://192.168.122.164:2375"
 

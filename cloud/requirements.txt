@@ -3,3 +3,4 @@ fastapi
 psutil
 uvicorn
 cryptography
+speedtest
