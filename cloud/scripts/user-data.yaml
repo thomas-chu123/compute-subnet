@@ -1,0 +1,9 @@
+#cloud-config
+users:
+  - name: test
+    sudo: ["ALL=(ALL) NOPASSWD:ALL"]
+    shell: /bin/bash
+    passwd: "$6$ddtIv9fdBPjb6V/p$JCd.pBtX4dnZHg4lUYb75P4cWh2DP/HRZWCTr7Zm8SPONYaQGi6d5C25AHacDAtw77GI7kvb4JyCzmJBdi6He/"
+    chpasswd: { expire: False }
+ssh_pwauth: true
+disable_root: false

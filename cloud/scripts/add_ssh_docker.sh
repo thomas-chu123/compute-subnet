@@ -1,0 +1,1 @@
+docker run --gpus all -d -p 4444:22 -e AUTHORIZED_KEYS='ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCjKuukwa0eWlgaKvFnb08Dinh5FXS0+GMKr5T1I8QfCSpsrAeDVpM6VByCAtb1fgegHPwwIh1kLpazpX1VjLILSyk7/TyVg5PQ9IeACEUWAfEncriX5vbRJbFbV1RxpmhelwqQu6penf7JHhYxdb2MpigwZAMEwbvjfCu/s3jPZw==' -e ROOT_PASSWORD='1234' mulinbc/sshd
