@@ -16,12 +16,11 @@
 # DEALINGS IN THE SOFTWARE.
 # Step 1: Import necessary libraries and modules
 
-import bittensor as bt
 import base64
 import os
 from io import BytesIO
 
-from cloud.libs.container import kill_container, run_container, check_container
+from libs.container import kill_container, run_container, check_container
 
 # Register for given timeline and device_requirement
 def register_allocation(timeline, device_requirement, public_key, docker_requirement: dict):

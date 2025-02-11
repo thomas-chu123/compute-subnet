@@ -37,6 +37,8 @@ def allocate_container():
 
     docker_requirement = {}
     docker_requirement["base_image"] = "pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime"
+    docker_requirement["ssh_port"] = 4444
+    docker_requirement["ssh_key"] = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQCjKuukwa0eWlgaKvFnb08Dinh5FXS0+GMKr5T1I8QfCSpsrAeDVpM6VByCAtb1fgegHPwwIh1kLpazpX1VjLILSyk7/TyVg5PQ9IeACEUWAfEncriX5vbRJbFbV1RxpmhelwqQu6penf7JHhYxdb2MpigwZAMEwbvjfCu/s3jPZw=="
 
     run_status = register_allocation(timeline=30,
                                      device_requirement=device_requirement,
