@@ -1,28 +1,60 @@
 function main() {
+    show_readme
     # install libvirt
+    echo "Installing libvirt"
     install_libvirt
+    # check_iommu
+    echo "Checking IOMMU"
+    check_iommu
     # check prime select and pci
+    echo "Checking prime select and pci"
     check_prime_select
+    # check pci
     check_pci
     get_pci
     bind_pci
+    echo "Download cloud image"
     # download cloud image
     download_cloud_image jammy-server-cloudimg-amd64.img http://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img 50G
+    echo "Install kvm and startup kvm"
     # install kvm
-    install_kvm 4 8192
+    read -p "Enter the number of vcpu in the KVM: " vcpu
+    read -p "Enter the memory size in the KVM: " memory
+    read -p "Enter the ssh port in the KVM: " ssh_port
+    install_kvm $vcpu $memory
     # auto start kvm
     kvm_auto_startup ubuntu220405
+    echo "Config host docker"
     # config host docker
     config_host_docker
+    echo "Config iptables and please configure the port forwarding in the router to your host IP and SSH port"
     # config iptables
-    config_iptables 4444
+    config_iptables $ssh_port
 }
 
 main
 
+function show_readme() {
+    echo "Please read the README.md file for more information"
+    echo "This KVM installation require the following setting in the host machine"
+    echo "1. Enable IOMMU in host machine's BIOS"
+    echo "2. Enable AMD (AMD-V/AMD-Vi) or Intel (VT-x/VT-d) virtualization in host machine's BIOS"
+    echo "3. The host machine should at least have two GPUs (one iGPU and one or more NVIDIA dGPU), one iGPU for host and one or more NVIDIA dGPU for KVM"
+    echo "4. The host machine should not connect to the monitor via NVIDIA GPU and should connect to the monitor via iGPU"
+    echo "5. Installing NVIDIA driver in the host machine is not recommended"
+    echo "6. All the NVIDIA dGPU should be bound to vfio-pci driver and will be used in KVM"
+    echo "7. The host machine should have a stable internet connection with at least 100Mbps download speed"
+    echo "8. The host machine should have at least 8 CPU cores"
+    echo "9. The host machine should have at least 16GB of RAM"
+    echo "10. The host machine should have at least 100GB of free disk space"
+    echo "11. The host machine OS only support the Linux OS and should be newer than Ubuntu 22.04 LTS distribution"
+    echo "12. The same Nvidia dGPU (video/audio PCIe) should be in the same IOMMU group"
+    read -n 1 -s -r -p "Press any key to continue..."
+}
+
 function install_libvirt() {
     sudo apt update
-    sudo apt install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virtinst virt-manager
+    sudo apt install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virtinst virt-manager cloud-utils
     sudo systemctl enable libvirtd
     sudo systemctl start libvirtd
     sudo usermod -aG libvirt $USER
@@ -36,6 +68,7 @@ function check_prime_select() {
       echo "Prime select is set to nvidia"
       echo "Switching to intel"
       sudo prime-select intel
+      read -n 1 -s -r -p "Press any key to reboot the system..."
       sudo sudo reboot
     else
       echo "Prime select is set to $prime_select"
@@ -57,6 +90,18 @@ function download_cloud_image() {
       echo "$image already exists"
     fi
     sudo qemu-img create -b jammy-server-cloudimg-amd64.img -f qcow2 -F qcow2 ubuntu220405.qcow2 $file_size
+}
+
+function check_iommu() {
+    local iommu
+    iommu=$(dmesg | grep -i iommu)
+    if [ -z "$iommu" ]; then
+      echo "IOMMU is not enabled"
+      echo "Please enable IOMMU in BIOS"
+      exit 1
+    else
+      echo "IOMMU is enabled"
+    fi
 }
 
 function check_pci() {
