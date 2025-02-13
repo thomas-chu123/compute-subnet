@@ -143,6 +143,13 @@ function bind_pci() {
 function install_kvm() {
     vcpu=$1
     memory=$2
+
+    encrypted_disk="/var/lib/libvirt/images/ubuntu220405_encrypted.qcow2"
+    luks_disk="/var/lib/libvirt/images/ubuntu220405_luks.qcow2"
+
+    # Create an encrypted disk
+    # create_encrypted_disk $encrypted_disk $luks_disk
+
     cmd="sudo virt-install \
       --name ubuntu220405 \
       --memory ${memory} \
@@ -211,4 +218,37 @@ function config_iptables() {
     sudo iptables -t nat -A OUTPUT -p tcp --dport $ssh_port -j DNAT --to $host_ip:$ssh_port
     sudo iptables -t nat -I PREROUTING -p tcp --dport $ssh_port -j DNAT --to $host_ip:$ssh_port
     sudo iptables -A FORWARD -p tcp -d $host_ip --dport $ssh_port -m state --state NEW,ESTABLISHED,RELATED -j ACCEPT
+}
+
+function create_encrypted_disk() {
+    encrypted_disk=$1
+    luks_disk=$2
+    disk_size=$3
+
+    # Create a new qcow2 image
+    sudo qemu-img create -f qcow2 $encrypted_disk $disk_size
+
+    # Encrypt the qcow2 image with LUKS
+    echo "Creating LUKS encrypted disk"
+    sudo cryptsetup luksFormat $encrypted_disk
+
+    # Open the LUKS encrypted disk
+    sudo cryptsetup open $encrypted_disk luks_disk
+
+    # Create a filesystem on the encrypted disk
+    sudo mkfs.ext4 /dev/mapper/luks_disk
+
+    # Close the LUKS encrypted disk
+    sudo cryptsetup close luks_disk
+
+    # Convert the encrypted disk to qcow2 format
+    sudo qemu-img convert -f raw -O qcow2 $encrypted_disk $luks_disk
+}
+
+red() { echo -e "\e[31m$@\e[0m"; }
+green() { echo -e "\e[32m$@\e[0m"; }
+blue() { echo -e "\e[34m$@\e[0m"; }
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $@" | tee -a install.log
 }
