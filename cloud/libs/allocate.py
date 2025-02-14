@@ -20,7 +20,17 @@ import base64
 import os
 from io import BytesIO
 
-from cloud.libs.container import kill_container, run_container, check_container
+from .container import kill_container, run_container, check_container
+
+# Allocation Management Class
+class AllocationManager:
+    def allocate(self, resource):
+        # Implement allocation logic
+        pass
+
+    def deallocate(self, resource):
+        # Implement deallocation logic
+        pass
 
 # Register for given timeline and device_requirement
 def register_allocation(timeline, device_requirement, public_key, docker_requirement: dict):

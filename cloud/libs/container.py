@@ -1,3 +1,4 @@
+# Description: This file contains the docker operations.
 # The MIT License (MIT)
 # Copyright © 2023 GitPhantomman
 
@@ -31,10 +32,6 @@ from docker.types import DeviceRequest
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(parent_dir)
 
-# Add the path to the 'libs' folder
-sys.path.append(os.path.join(os.path.dirname(__file__), 'libs'))
-# Add the path to the 'libs' folder
-sys.path.append(os.path.join(os.path.dirname(__file__), 'utils'))
 
 from cloud.utils import RSAEncryption as rsa
 
@@ -48,6 +45,35 @@ volume_name = "ssh-volume"  # Docker volumne name
 volume_path = "/tmp"  # Path inside the container where the volume will be mounted
 ssh_port = 4444  # Port to map SSH service on the host
 
+# Docker Management Class
+import docker
+
+class DockerManager:
+    def __init__(self):
+        self.client = docker.from_env()
+
+    def pause_container(self, container_name):
+        container = self.client.containers.get(container_name)
+        container.pause()
+
+    def unpause_container(self, container_name):
+        container = self.client.containers.get(container_name)
+        container.unpause()
+
+    def restart_container(self, container_name):
+        container = self.client.containers.get(container_name)
+        container.restart()
+
+    def exchange_ssh_key(self, container_name, ssh_key):
+        # Implement SSH key exchange
+        pass
+
+    def add_container(self, image_name, container_name):
+        self.client.containers.run(image_name, name=container_name, detach=True)
+
+    def delete_container(self, container_name):
+        container = self.client.containers.get(container_name)
+        container.remove(force=True)
 
 # Initialize Docker client
 def get_docker():
